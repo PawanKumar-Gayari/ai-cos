@@ -1,35 +1,52 @@
 """
-Enterprise memory-aware intelligent generator.
+Enterprise Intelligent SEO Generator
+Final Optimized Production Edition
 """
 
+from __future__ import annotations
+
 import logging
+import re
+import time
 
-from apps.memory.window.context_window import (
-    ContextWindow
-)
-
-from apps.memory.indexer.memory_indexer import (
-    MemoryIndexer
-)
-
-from apps.llm.router import (
-    LLMRouter
-)
-
-from apps.generator.response_cleaner import (
-    ResponseCleaner
+from apps.dashboard.services.feature_service import (
+    FeatureService,
 )
 
 from apps.generator.content_scorer import (
-    ContentScorer
+    ContentScorer,
+)
+
+from apps.generator.prompts.prompt_builder import (
+    PromptBuilder,
+)
+
+from apps.generator.response_cleaner import (
+    ResponseCleaner,
+)
+
+from apps.generator.validators.hallucination_validator import (
+    HallucinationValidator,
+)
+
+from apps.generator.validators.topic_validator import (
+    TopicValidator,
 )
 
 from apps.keywords.engine import (
-    KeywordEngine
+    KeywordEngine,
 )
 
-from apps.competitor.engine import (
-    CompetitorEngine
+from apps.keywords.processors.density import (
+    KeywordDensityProcessor,
+)
+
+from apps.llm.router import (
+    LLMRouter,
+)
+
+from apps.memory.indexer.memory_indexer import (
+    MemoryIndexer,
 )
 
 
@@ -38,591 +55,465 @@ logger = logging.getLogger(
 )
 
 
+# =========================================================
+# INTELLIGENT GENERATOR
+# =========================================================
+
 class IntelligentGenerator:
 
-    def __init__(self):
+    """
+    Enterprise multilingual SEO AI generator.
+    """
 
-        # ==========================================
-        # MEMORY
-        # ==========================================
+    # =====================================================
+    # INIT
+    # =====================================================
 
-        self.context_window = (
-            ContextWindow()
+    def __init__(
+        self,
+    ):
+
+        self.router = (
+            LLMRouter()
+        )
+
+        self.keyword_engine = (
+            KeywordEngine()
+        )
+
+        self.density_processor = (
+            KeywordDensityProcessor()
         )
 
         self.memory_indexer = (
             MemoryIndexer()
         )
 
-        # ==========================================
-        # AI ROUTER
-        # ==========================================
+    # =====================================================
+    # FEATURE CHECK
+    # =====================================================
 
-        self.router = (
-            LLMRouter()
-        )
-
-        # ==========================================
-        # SEO KEYWORDS
-        # ==========================================
-
-        self.keyword_engine = (
-            KeywordEngine()
-        )
-
-        # ==========================================
-        # COMPETITOR ENGINE
-        # ==========================================
-
-        self.competitor_engine = (
-            CompetitorEngine()
-        )
-
-    # ==================================================
-    # PROMPT BUILDER
-    # ==================================================
-
-    def build_prompt(
+    def feature_enabled(
         self,
-        user_query,
-        context_prompt,
-        task_type="seo",
-        seo_keywords=None,
-        competitor_context=None,
+        key,
+        default=False,
     ):
 
-        """
-        Build optimized prompt
-        for cloud + local LLMs.
-        """
+        try:
 
-        lines = []
+            return FeatureService.is_enabled(
 
-        # ==========================================
-        # CORE RULES
-        # ==========================================
+                key,
 
-        lines.append(
-            "Write clear, natural, "
-            "human-like content."
-        )
-
-        lines.append(
-            "Use markdown formatting."
-        )
-
-        lines.append(
-            "Avoid robotic phrasing."
-        )
-
-        lines.append(
-            "Do not mention AI."
-        )
-
-        lines.append(
-            "Write directly without filler."
-        )
-
-        lines.append(
-            "Keep explanations practical."
-        )
-
-        lines.append("")
-
-        # ==========================================
-        # TASK RULES
-        # ==========================================
-
-        if task_type == "seo":
-
-            lines.append(
-                "Focus on SEO optimization."
+                default=default,
             )
 
-            lines.append(
-                "Use SEO best practices."
+        except Exception as error:
+
+            logger.warning(
+
+                f"Feature check failed: "
+                f"{key} | "
+                f"{str(error)}"
             )
 
-            lines.append(
-                "Optimize readability."
-            )
+            return default
 
-        elif task_type == "outline":
+    # =====================================================
+    # LANGUAGE DETECTION
+    # =====================================================
 
-            lines.append(
-                "Create a detailed outline."
-            )
+    def detect_language(
+        self,
+        text,
+    ):
 
-            lines.append(
-                "Use H1, H2, and H3 headings."
-            )
+        text = str(
+            text
+        ).lower()
 
-        elif task_type == "keywords":
+        if re.search(
+            r"[\u0900-\u097F]",
+            text,
+        ):
 
-            lines.append(
-                "Generate SEO keywords."
-            )
+            return "hindi"
 
-            lines.append(
-                "Include long-tail keywords."
-            )
+        roman_hindi_words = [
 
-            lines.append(
-                "Include search intent."
-            )
+            "kaise",
 
-        elif task_type == "article":
+            "kya",
 
-            lines.append(
-                "Write a complete article."
-            )
+            "kyu",
 
-            lines.append(
-                "Use markdown headings."
-            )
+            "karna",
 
-            lines.append(
-                "Use readable paragraphs."
-            )
+            "kare",
 
-        elif task_type == "reasoning":
+            "likhe",
 
-            lines.append(
-                "Explain concepts simply."
-            )
+            "likhen",
 
-            lines.append(
-                "Use practical examples."
-            )
+            "samjhe",
 
-        lines.append("")
+            "sikhe",
 
-        # ==========================================
-        # SEO KEYWORDS
-        # ==========================================
+            "hai",
 
-        if seo_keywords:
+            "hindi",
+        ]
 
-            lines.append(
-                "SEO keywords:"
-            )
+        for word in (
+            roman_hindi_words
+        ):
 
-            for keyword in seo_keywords[:8]:
+            if word in text:
 
-                lines.append(
-                    f"- {keyword}"
+                return "hinglish"
+
+        return "english"
+
+    # =====================================================
+    # NORMALIZE PAYLOAD
+    # =====================================================
+
+    def normalize_payload(
+        self,
+        query,
+    ):
+
+        if isinstance(
+            query,
+            dict,
+        ):
+
+            payload = query
+
+            normalized_query = str(
+
+                payload.get(
+                    "query"
                 )
 
-            lines.append("")
+                or
 
-        # ==========================================
-        # MEMORY CONTEXT
-        # ==========================================
+                payload.get(
+                    "keyword"
+                )
 
-        if context_prompt:
-
-            lines.append(
-                "Relevant context:"
+                or ""
             )
 
-            lines.append(
-                context_prompt
+        else:
+
+            normalized_query = str(
+                query
             )
 
-            lines.append("")
+            payload = {
 
-        # ==========================================
-        # COMPETITOR CONTEXT
-        # ==========================================
+                "query": (
+                    normalized_query
+                )
+            }
 
-        if competitor_context:
+        return (
 
-            lines.append(
-                "Competitor analysis:"
-            )
+            normalized_query,
 
-            lines.append(
-                competitor_context
-            )
-
-            lines.append("")
-
-        # ==========================================
-        # FINAL TASK
-        # ==========================================
-
-        lines.append(
-            f"Task: {user_query}"
+            payload,
         )
 
-        lines.append("")
-
-        lines.append(
-            "Write the final answer directly."
-        )
-
-        return "\n".join(
-            lines
-        )
-
-    # ==================================================
-    # TASK DETECTION
-    # ==================================================
+    # =====================================================
+    # TASK TYPE
+    # =====================================================
 
     def detect_task_type(
         self,
         query,
     ):
 
-        """
-        Intelligent task classification.
-        """
-
-        query_lower = (
-            query.lower()
-        )
-
-        seo_keywords = [
-
-            "seo",
-
-            "ranking",
-
-            "google",
-
-            "backlinks",
-
-            "meta title",
-
-            "meta description",
-
-            "search engine",
-        ]
+        query_lower = str(
+            query
+        ).lower()
 
         if any(
-            keyword in query_lower
-            for keyword in seo_keywords
-        ):
 
-            return "seo"
+            word in query_lower
 
-        keyword_keywords = [
+            for word in [
 
-            "keyword",
+                "outline",
 
-            "keywords",
+                "toc",
 
-            "search terms",
-
-            "keyword research",
-        ]
-
-        if any(
-            keyword in query_lower
-            for keyword in keyword_keywords
-        ):
-
-            return "keywords"
-
-        outline_keywords = [
-
-            "outline",
-
-            "structure",
-
-            "table of contents",
-
-            "headings",
-        ]
-
-        if any(
-            keyword in query_lower
-            for keyword in outline_keywords
+                "structure",
+            ]
         ):
 
             return "outline"
 
-        article_keywords = [
-
-            "write",
-
-            "article",
-
-            "blog",
-
-            "guide",
-
-            "tutorial",
-        ]
-
         if any(
-            keyword in query_lower
-            for keyword in article_keywords
+
+            word in query_lower
+
+            for word in [
+
+                "keyword",
+
+                "keywords",
+            ]
         ):
 
-            return "article"
+            return "keywords"
 
-        reasoning_keywords = [
+        return "article"
 
-            "explain",
+    # =====================================================
+    # PROVIDER ROUTING
+    # =====================================================
 
-            "why",
-
-            "how",
-
-            "difference",
-
-            "compare",
-        ]
-
-        if any(
-            keyword in query_lower
-            for keyword in reasoning_keywords
-        ):
-
-            return "reasoning"
-
-        return "general"
-
-    # ==================================================
-    # CONTEXT SANITIZATION
-    # ==================================================
-
-    def sanitize_context(
+    def select_provider(
         self,
-        context,
+        payload,
     ):
 
-        """
-        Remove embeddings
-        and internal metadata.
-        """
-
-        semantic_memories = (
-            context.get(
-                "semantic_memories",
-                []
+        manual_provider = (
+            payload.get(
+                "provider"
             )
         )
 
-        hot_memories = (
-            context.get(
-                "hot_memories",
-                []
+        # =============================================
+        # MANUAL PROVIDER
+        # =============================================
+
+        if manual_provider:
+
+            provider_health = (
+                self.router.provider_health()
+            )
+
+            provider_data = (
+                provider_health.get(
+                    manual_provider,
+                    {}
+                )
+            )
+
+            cooldown = (
+                provider_data.get(
+                    "last_failure"
+                )
+            )
+
+            if cooldown:
+
+                logger.warning(
+
+                    f"Manual provider "
+                    f"{manual_provider} "
+                    f"cooldown detected. "
+                    f"Using adaptive routing."
+                )
+
+            else:
+
+                logger.info(
+
+                    f"Manual provider: "
+                    f"{manual_provider}"
+                )
+
+                return manual_provider
+
+        # =============================================
+        # FEATURE FLAGS
+        # =============================================
+
+        gemini_enabled = (
+            self.feature_enabled(
+                "gemini_enabled",
+                default=False,
             )
         )
 
-        sanitized_semantic = []
+        openai_enabled = (
+            self.feature_enabled(
+                "openai_enabled",
+                default=False,
+            )
+        )
 
-        for memory in semantic_memories:
+        logger.info(
 
-            sanitized_semantic.append({
+            f"Provider status | "
+            f"gemini={gemini_enabled} | "
+            f"openai={openai_enabled}"
+        )
 
-                "query": memory.get(
-                    "query"
+        # =============================================
+        # PRIORITY ORDER
+        # =============================================
+
+        if gemini_enabled:
+
+            logger.info(
+                "Adaptive routing → Gemini"
+            )
+
+            return "gemini"
+
+        if openai_enabled:
+
+            logger.info(
+                "Adaptive routing → OpenAI"
+            )
+
+            return "openai"
+
+        raise RuntimeError(
+            "No AI provider enabled."
+        )
+
+    # =====================================================
+    # RESPONSE EXTRACTION
+    # =====================================================
+
+    def extract_response(
+        self,
+        response,
+    ):
+
+        if isinstance(
+            response,
+            dict,
+        ):
+
+            return {
+
+                "success": response.get(
+                    "success",
+                    True,
                 ),
 
-                "score": memory.get(
-                    "final_score"
+                "provider": response.get(
+                    "provider",
+                    "unknown",
                 ),
 
-                "created_at": memory.get(
-                    "created_at"
+                "content": (
+
+                    response.get(
+                        "content"
+                    )
+
+                    or
+
+                    response.get(
+                        "generated_content"
+                    )
+
+                    or ""
                 ),
-            })
 
-        sanitized_hot = []
-
-        for memory in hot_memories:
-
-            sanitized_hot.append({
-
-                "query": memory.get(
-                    "query"
+                "errors": response.get(
+                    "errors",
+                    [],
                 ),
-
-                "created_at": memory.get(
-                    "created_at"
-                ),
-            })
+            }
 
         return {
 
-            "query": context.get(
-                "query"
+            "success": True,
+
+            "provider": "unknown",
+
+            "content": str(
+                response
             ),
 
-            "semantic_memories_count": (
-                len(sanitized_semantic)
-            ),
-
-            "hot_memories_count": (
-                len(sanitized_hot)
-            ),
-
-            "semantic_memories": (
-                sanitized_semantic
-            ),
-
-            "hot_memories": (
-                sanitized_hot
-            ),
+            "errors": [],
         }
 
-    # ==================================================
-    # COMPETITOR CONTEXT
-    # ==================================================
-
-    def build_competitor_context(
-        self,
-        competitor_data,
-    ):
-
-        """
-        Build compact competitor insights.
-        """
-
-        if not competitor_data:
-
-            return ""
-
-        lines = []
-
-        summary = (
-            competitor_data.get(
-                "analysis_summary",
-                {}
-            )
-        )
-
-        gap_analysis = (
-            competitor_data.get(
-                "gap_analysis",
-                {}
-            )
-        )
-
-        weakness_analysis = (
-            competitor_data.get(
-                "weakness_analysis",
-                {}
-            )
-        )
-
-        competition_level = (
-            summary.get(
-                "competition_level"
-            )
-        )
-
-        if competition_level:
-
-            lines.append(
-
-                f"Competition level: "
-                f"{competition_level}"
-            )
-
-        seo_opportunity = (
-            summary.get(
-                "seo_opportunity"
-            )
-        )
-
-        if seo_opportunity:
-
-            lines.append(
-
-                f"SEO opportunity: "
-                f"{seo_opportunity}"
-            )
-
-        gaps = (
-            gap_analysis.get(
-                "content_gaps",
-                []
-            )
-        )
-
-        if gaps:
-
-            lines.append("")
-            lines.append(
-                "Content opportunities:"
-            )
-
-            for gap in gaps[:5]:
-
-                lines.append(
-                    f"- {gap}"
-                )
-
-        weaknesses = (
-            weakness_analysis.get(
-                "weaknesses",
-                []
-            )
-        )
-
-        if weaknesses:
-
-            lines.append("")
-            lines.append(
-                "Competitor weaknesses:"
-            )
-
-            for weakness in weaknesses[:5]:
-
-                lines.append(
-                    f"- {weakness}"
-                )
-
-        return "\n".join(
-            lines
-        )
-
-    # ==================================================
+    # =====================================================
     # MAIN GENERATION
-    # ==================================================
+    # =====================================================
 
-    async def generate(
+    def generate(
         self,
         query,
         session_id=None,
     ):
 
-        """
-        Full intelligent generation pipeline.
-        """
+        started_at = time.time()
+
+        query, payload = (
+            self.normalize_payload(
+                query
+            )
+        )
 
         logger.info(
 
-            f"Starting intelligent "
-            f"generation for: {query}"
+            f"START GENERATION: "
+            f"{query}"
         )
 
-        # ==========================================
-        # MEMORY CONTEXT
-        # ==========================================
+        # =============================================
+        # EMERGENCY SHUTDOWN
+        # =============================================
 
-        context = (
-            self.context_window.build(
+        if self.feature_enabled(
+            "emergency_shutdown"
+        ):
 
-                query=query,
+            raise RuntimeError(
+                "System temporarily disabled."
+            )
 
-                session_id=session_id,
+        # =============================================
+        # GENERATOR ENABLED
+        # =============================================
+
+        if not self.feature_enabled(
+
+            "generator_enabled",
+
+            default=True,
+        ):
+
+            raise RuntimeError(
+                "Generator disabled."
+            )
+
+        # =============================================
+        # PROVIDER ROUTING
+        # =============================================
+
+        selected_provider = (
+            self.select_provider(
+                payload
             )
         )
 
-        context_prompt = (
-            self.context_window.prompt_context(
-                context
-            )
+        payload.setdefault(
+
+            "provider",
+
+            selected_provider,
         )
 
-        # ==========================================
-        # TASK TYPE
-        # ==========================================
+        logger.info(
+
+            f"Selected provider: "
+            f"{selected_provider}"
+        )
+
+        # =============================================
+        # TASK + LANGUAGE
+        # =============================================
 
         task_type = (
             self.detect_task_type(
@@ -630,152 +521,148 @@ class IntelligentGenerator:
             )
         )
 
+        language = (
+            self.detect_language(
+                query
+            )
+        )
+
+        # =============================================
+        # LIGHTWEIGHT MODE
+        # =============================================
+
+        lightweight_mode = (
+            self.feature_enabled(
+                "lightweight_mode",
+                default=True,
+            )
+        )
+
         logger.info(
 
-            f"Detected task type: "
+            f"Language: "
+            f"{language} | "
+            f"Task: "
             f"{task_type}"
         )
 
-        # ==========================================
-        # KEYWORD ENRICHMENT
-        # ==========================================
+        # =============================================
+        # SEO DATA REUSE
+        # =============================================
 
-        seo_keywords = []
-
-        try:
-
-            keyword_data = (
-                self.keyword_engine.best_keywords(
-                    query
-                )
+        seo_data = (
+            payload.get(
+                "seo_data",
+                {}
             )
+        )
 
-            seo_keywords = [
-
-                item["keyword"]
-
-                for item in keyword_data
-            ]
-
-        except Exception as error:
-
-            logger.warning(
-
-                f"Keyword enrichment failed: "
-                f"{str(error)}"
-            )
-
-        # ==========================================
-        # COMPETITOR ENRICHMENT
-        # ==========================================
-
-        competitor_context = ""
-
-        try:
-
-            competitor_data = (
-                self.competitor_engine.analyze(
-                    query
-                )
-            )
-
-            competitor_context = (
-                self.build_competitor_context(
-                    competitor_data
-                )
-            )
+        if seo_data:
 
             logger.info(
-
-                "Competitor enrichment "
-                "completed."
-            )
-
-        except Exception as error:
-
-            logger.warning(
-
-                f"Competitor analysis failed: "
-                f"{str(error)}"
-            )
-
-        # ==========================================
-        # FINAL PROMPT
-        # ==========================================
-
-        final_prompt = (
-            self.build_prompt(
-
-                user_query=query,
-
-                context_prompt=context_prompt,
-
-                task_type=task_type,
-
-                seo_keywords=seo_keywords,
-
-                competitor_context=(
-                    competitor_context
-                ),
-            )
-        )
-
-        # ==========================================
-        # GENERATION
-        # ==========================================
-
-        response = await self.router.generate(
-
-            prompt=final_prompt,
-
-            task_type=task_type,
-        )
-
-        # ==========================================
-        # SAFE EXTRACTION
-        # ==========================================
-
-        generated_content = ""
-
-        provider = "unknown"
-
-        success = False
-
-        if isinstance(
-            response,
-            dict,
-        ):
-
-            generated_content = (
-                response.get(
-                    "content",
-                    ""
-                )
-            )
-
-            provider = (
-                response.get(
-                    "provider",
-                    "unknown"
-                )
-            )
-
-            success = (
-                response.get(
-                    "success",
-                    False
-                )
+                "Reusing existing SEO data."
             )
 
         else:
 
-            generated_content = str(
-                response
+            logger.info(
+                "Running fresh SEO analysis."
             )
 
-        # ==========================================
+            try:
+
+                seo_data = (
+                    self.keyword_engine
+                    .analyze_keyword(
+                        query
+                    )
+                )
+
+                logger.info(
+                    "SEO analysis completed."
+                )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"SEO engine failed: "
+                    f"{str(error)}"
+                )
+
+                seo_data = {}
+
+        # =============================================
+        # PROMPT BUILDING
+        # =============================================
+
+        final_prompt = (
+            PromptBuilder.build(
+
+                user_query=query,
+
+                language=language,
+
+                seo_data=seo_data,
+
+                competitor_context="",
+            )
+        )
+
+        logger.info(
+            "Prompt assembly complete."
+        )
+
+        # =============================================
+        # GENERATION
+        # =============================================
+
+        response = self.router.generate(
+
+            prompt=final_prompt,
+
+            task_type=task_type,
+
+            provider=payload.get(
+                "provider"
+            ),
+        )
+
+        normalized_response = (
+            self.extract_response(
+                response
+            )
+        )
+
+        actual_provider = (
+
+            normalized_response.get(
+                "provider",
+                selected_provider,
+            )
+        )
+
+        generated_content = (
+
+            normalized_response.get(
+                "content",
+                ""
+            )
+        )
+
+        # =============================================
+        # EMPTY CHECK
+        # =============================================
+
+        if not generated_content:
+
+            raise RuntimeError(
+                "Empty AI response received."
+            )
+
+        # =============================================
         # CLEAN RESPONSE
-        # ==========================================
+        # =============================================
 
         generated_content = (
             ResponseCleaner.clean(
@@ -783,185 +670,262 @@ class IntelligentGenerator:
             )
         )
 
-        # ==========================================
-        # CONTENT SCORING
-        # ==========================================
+        # =============================================
+        # VALIDATION
+        # =============================================
 
-        content_scores = (
-            ContentScorer.score(
-                generated_content
+        hallucination_validation = {}
+
+        topic_validation = {}
+
+        if self.feature_enabled(
+            "hallucination_validator"
+        ):
+
+            try:
+
+                hallucination_validation = (
+                    HallucinationValidator.validate(
+                        generated_content
+                    )
+                )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Hallucination validator failed: "
+                    f"{str(error)}"
+                )
+
+        if self.feature_enabled(
+            "topic_validator"
+        ):
+
+            try:
+
+                topic_validation = (
+                    TopicValidator.validate(
+
+                        query,
+
+                        generated_content,
+                    )
+                )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Topic validator failed: "
+                    f"{str(error)}"
+                )
+
+        # =============================================
+        # SEO SCORING
+        # =============================================
+
+        content_scores = {}
+
+        if (
+
+            self.feature_enabled(
+                "seo_scoring"
             )
-        )
 
-        # ==========================================
+            and
+
+            not lightweight_mode
+        ):
+
+            try:
+
+                content_scores = (
+                    ContentScorer.score(
+                        generated_content
+                    )
+                )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Scoring failed: "
+                    f"{str(error)}"
+                )
+
+        # =============================================
+        # DENSITY ANALYSIS
+        # =============================================
+
+        density_analysis = {}
+
+        if (
+
+            self.feature_enabled(
+                "density_analysis"
+            )
+
+            and
+
+            not lightweight_mode
+        ):
+
+            try:
+
+                density_analysis = (
+                    self.density_processor.analyze(
+
+                        generated_content,
+
+                        query,
+                    )
+                )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Density failed: "
+                    f"{str(error)}"
+                )
+
+        # =============================================
         # MEMORY INDEXING
-        # ==========================================
+        # =============================================
 
-        try:
+        if self.feature_enabled(
+            "memory_indexing"
+        ):
 
-            self.memory_indexer.index(
+            try:
 
-                query=query,
+                self.memory_indexer.index(
 
-                metadata={
+                    query=query,
 
-                    "title": query,
+                    metadata={
 
-                    "source": (
-                        "intelligent_generator"
-                    ),
+                        "title": query,
 
-                    "importance": 0.8,
+                        "provider": (
+                            actual_provider
+                        ),
 
-                    "task_type": (
-                        task_type
-                    ),
-                }
-            )
+                        "task_type": (
+                            task_type
+                        ),
 
-        except Exception as error:
+                        "source": (
+                            "intelligent_generator"
+                        ),
+                    }
+                )
 
-            logger.warning(
+            except Exception as error:
 
-                f"Memory indexing failed: "
-                f"{str(error)}"
-            )
+                logger.warning(
 
-        clean_context = (
-            self.sanitize_context(
-                context
-            )
+                    f"Memory indexing failed: "
+                    f"{str(error)}"
+                )
+
+        # =============================================
+        # EXECUTION TIME
+        # =============================================
+
+        execution_time = round(
+
+            time.time() - started_at,
+
+            2,
         )
 
-        logger.info(
+        # =============================================
+        # FINAL LOGGING
+        # =============================================
 
-            f"Generation completed "
-            f"for: {query}"
-        )
+        if normalized_response.get(
+            "success",
+            False
+        ):
+
+            logger.info(
+
+                f"GENERATION COMPLETE | "
+                f"provider={actual_provider} | "
+                f"time={execution_time}s"
+            )
+
+        else:
+
+            logger.error(
+
+                f"GENERATION FAILED | "
+                f"provider={actual_provider}"
+            )
+
+        # =============================================
+        # FINAL RESPONSE
+        # =============================================
 
         return {
 
-            "success": success,
+            "success": (
+                normalized_response.get(
+                    "success",
+                    True,
+                )
+            ),
 
-            "provider": provider,
+            "provider": (
+                actual_provider
+            ),
 
             "query": query,
+
+            "language": language,
 
             "task_type": (
                 task_type
             ),
 
-            "generated_content": (
+            "execution_time": (
+                execution_time
+            ),
+
+            "lightweight_mode": (
+                lightweight_mode
+            ),
+
+            "content": (
                 generated_content
             ),
 
-            "seo_keywords": (
-                seo_keywords
+            "seo_data": (
+                seo_data
             ),
 
             "scores": (
                 content_scores
             ),
 
-            "context": (
-                clean_context
+            "density_analysis": (
+                density_analysis
             ),
 
-            "competitor_enrichment": bool(
-                competitor_context
+            "hallucination_validation": (
+                hallucination_validation
             ),
-        }
 
-    # ==================================================
-    # ARTICLE
-    # ==================================================
+            "topic_validation": (
+                topic_validation
+            ),
 
-    async def generate_article(
-        self,
-        topic,
-        session_id=None,
-    ):
-
-        article_query = (
-
-            f"Write an SEO article "
-            f"about {topic}"
-        )
-
-        return await self.generate(
-
-            query=article_query,
-
-            session_id=session_id,
-        )
-
-    # ==================================================
-    # OUTLINE
-    # ==================================================
-
-    async def generate_outline(
-        self,
-        topic,
-        session_id=None,
-    ):
-
-        outline_query = (
-
-            f"Create an outline "
-            f"for {topic}"
-        )
-
-        return await self.generate(
-
-            query=outline_query,
-
-            session_id=session_id,
-        )
-
-    # ==================================================
-    # KEYWORDS
-    # ==================================================
-
-    async def generate_keywords(
-        self,
-        topic,
-        session_id=None,
-    ):
-
-        keyword_query = (
-
-            f"Generate keywords "
-            f"for {topic}"
-        )
-
-        return await self.generate(
-
-            query=keyword_query,
-
-            session_id=session_id,
-        )
-
-    # ==================================================
-    # SYSTEM STATUS
-    # ==================================================
-
-    def system_status(self):
-
-        """
-        Generator system status.
-        """
-
-        return {
-
-            "generator": "active",
-
-            "memory_system": "active",
-
-            "keyword_engine": "active",
-
-            "competitor_engine": "active",
-
-            "router": (
-                self.router.router_status()
+            "errors": (
+                normalized_response.get(
+                    "errors",
+                    [],
+                )
             ),
         }

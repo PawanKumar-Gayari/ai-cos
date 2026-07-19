@@ -17,22 +17,16 @@ from apps.analytics.models import (
 # ARTICLE ANALYTICS ADMIN
 # ==================================================
 
-@admin.register(
-    ArticleAnalytics
-)
-class ArticleAnalyticsAdmin(
-    admin.ModelAdmin
-):
-
-    # ==============================================
-    # LIST DISPLAY
-    # ==============================================
+@admin.register(ArticleAnalytics)
+class ArticleAnalyticsAdmin(admin.ModelAdmin):
 
     list_display = (
 
         "article_title",
 
         "provider",
+
+        "model_name",
 
         "quality_badge",
 
@@ -44,14 +38,12 @@ class ArticleAnalyticsAdmin(
 
         "word_count",
 
+        "generation_time",
+
         "published",
 
         "created_at",
     )
-
-    # ==============================================
-    # FILTERS
-    # ==============================================
 
     list_filter = (
 
@@ -61,42 +53,39 @@ class ArticleAnalyticsAdmin(
 
         "published",
 
+        "used_fallback",
+
         "created_at",
     )
-
-    # ==============================================
-    # SEARCH
-    # ==============================================
 
     search_fields = (
 
         "article__title",
 
         "provider",
+
+        "model_name",
     )
 
-    # ==============================================
-    # ORDERING
-    # ==============================================
-
-    ordering = (
-
-        "-created_at",
-    )
-
-    # ==============================================
-    # READONLY
-    # ==============================================
+    ordering = ("-created_at",)
 
     readonly_fields = (
 
         "article",
 
+        "keyword_analysis",
+
+        "generator_config",
+
         "provider",
+
+        "model_name",
 
         "generation_time",
 
         "used_fallback",
+
+        "retry_count",
 
         "rewrite_score",
 
@@ -118,56 +107,46 @@ class ArticleAnalyticsAdmin(
 
         "word_count",
 
-        "published",
+        "heading_score",
 
-        "publish_url",
+        "token_usage",
+
+        "estimated_cost",
+
+        "response_latency",
 
         "error_count",
 
         "warnings",
 
+        "raw_metadata",
+
         "final_quality_score",
 
         "quality_status",
+
+        "published",
+
+        "publish_url",
+
+        "published_at",
 
         "created_at",
 
         "updated_at",
     )
 
-    # ==============================================
-    # PAGINATION
-    # ==============================================
-
     list_per_page = 25
 
-    # ==================================================
-    # CUSTOM METHODS
-    # ==================================================
+    @admin.display(description="Article")
+    def article_title(self, obj):
 
-    @admin.display(
-        description="Article"
-    )
-    def article_title(
-        self,
-        obj,
-    ):
+        return obj.article.title
 
-        return (
-            obj.article.title
-        )
+    @admin.display(description="Quality")
+    def quality_badge(self, obj):
 
-    @admin.display(
-        description="Quality"
-    )
-    def quality_badge(
-        self,
-        obj,
-    ):
-
-        score = (
-            obj.final_quality_score
-        )
+        score = obj.final_quality_score
 
         color = "#dc3545"
 
@@ -181,9 +160,7 @@ class ArticleAnalyticsAdmin(
 
         return format_html(
 
-            '<strong style="color:{};">'
-            '{} ({})'
-            '</strong>',
+            '<strong style="color:{};">{} ({})</strong>',
 
             color,
 
@@ -197,20 +174,16 @@ class ArticleAnalyticsAdmin(
 # PROVIDER ANALYTICS ADMIN
 # ==================================================
 
-@admin.register(
-    ProviderAnalytics
-)
-class ProviderAnalyticsAdmin(
-    admin.ModelAdmin
-):
-
-    # ==============================================
-    # LIST DISPLAY
-    # ==============================================
+@admin.register(ProviderAnalytics)
+class ProviderAnalyticsAdmin(admin.ModelAdmin):
 
     list_display = (
 
         "provider_name",
+
+        "model_name",
+
+        "health_badge",
 
         "success_rate",
 
@@ -220,47 +193,36 @@ class ProviderAnalyticsAdmin(
 
         "total_requests",
 
+        "failed_requests",
+
         "total_fallbacks",
 
         "updated_at",
     )
 
-    # ==============================================
-    # FILTERS
-    # ==============================================
-
     list_filter = (
 
         "provider_name",
 
+        "healthy",
+
         "created_at",
     )
-
-    # ==============================================
-    # SEARCH
-    # ==============================================
 
     search_fields = (
 
         "provider_name",
+
+        "model_name",
     )
 
-    # ==============================================
-    # ORDERING
-    # ==============================================
-
-    ordering = (
-
-        "-updated_at",
-    )
-
-    # ==============================================
-    # READONLY
-    # ==============================================
+    ordering = ("-updated_at",)
 
     readonly_fields = (
 
         "provider_name",
+
+        "model_name",
 
         "total_requests",
 
@@ -272,32 +234,31 @@ class ProviderAnalyticsAdmin(
 
         "average_quality_score",
 
+        "uptime_percentage",
+
         "total_fallbacks",
 
         "last_error",
+
+        "last_success",
+
+        "last_failure",
+
+        "healthy",
 
         "created_at",
 
         "updated_at",
     )
 
-    # ==============================================
-    # PAGINATION
-    # ==============================================
-
     list_per_page = 25
 
-    # ==================================================
+    # ==========================================
     # SUCCESS RATE
-    # ==================================================
+    # ==========================================
 
-    @admin.display(
-        description="Success Rate"
-    )
-    def success_rate(
-        self,
-        obj,
-    ):
+    @admin.display(description="Success Rate")
+    def success_rate(self, obj):
 
         if obj.total_requests == 0:
 
@@ -306,7 +267,6 @@ class ProviderAnalyticsAdmin(
         rate = (
 
             obj.successful_requests
-
             / obj.total_requests
 
         ) * 100
@@ -323,46 +283,53 @@ class ProviderAnalyticsAdmin(
 
         return format_html(
 
-            '<strong style="color:{};">'
-            '{}%'
-            '</strong>',
+            '<strong style="color:{};">{}%</strong>',
 
             color,
 
             round(rate, 1),
         )
 
-    # ==================================================
+    # ==========================================
+    # HEALTH BADGE
+    # ==========================================
+
+    @admin.display(description="Health")
+    def health_badge(self, obj):
+
+        if obj.healthy:
+
+            return format_html(
+
+                '<strong style="color:{};">Healthy</strong>',
+
+                "#198754",
+            )
+
+        return format_html(
+
+            '<strong style="color:{};">Unhealthy</strong>',
+
+            "#dc3545",
+        )
+
+    # ==========================================
     # RESPONSE TIME
-    # ==================================================
+    # ==========================================
 
-    @admin.display(
-        description="Avg Response"
-    )
-    def formatted_response_time(
-        self,
-        obj,
-    ):
+    @admin.display(description="Avg Response")
+    def formatted_response_time(self, obj):
 
-        return (
-            f"{round(obj.average_response_time, 2)}s"
-        )
+        return f"{round(obj.average_response_time, 2)}s"
 
-    # ==================================================
+    # ==========================================
     # QUALITY SCORE
-    # ==================================================
+    # ==========================================
 
-    @admin.display(
-        description="Avg Quality"
-    )
-    def formatted_quality_score(
-        self,
-        obj,
-    ):
+    @admin.display(description="Avg Quality")
+    def formatted_quality_score(self, obj):
 
-        score = (
-            obj.average_quality_score
-        )
+        score = obj.average_quality_score
 
         color = "#dc3545"
 
@@ -376,9 +343,7 @@ class ProviderAnalyticsAdmin(
 
         return format_html(
 
-            '<strong style="color:{};">'
-            '{}'
-            '</strong>',
+            '<strong style="color:{};">{}</strong>',
 
             color,
 

@@ -24,13 +24,15 @@ logger = logging.getLogger(
 
 class ContextWindow:
 
-    MAX_SEMANTIC_MEMORIES = 5
+    MAX_SEMANTIC_MEMORIES = 2
 
-    MAX_HOT_MEMORIES = 5
+    MAX_HOT_MEMORIES = 2
 
-    MAX_SESSION_ITEMS = 10
+    MAX_SESSION_ITEMS = 5
 
-    MAX_TEXT_LENGTH = 500
+    MAX_TEXT_LENGTH = 300
+
+    MAX_CONTEXT_LENGTH = 1200
 
     BLOCKED_PATTERNS = [
 
@@ -43,6 +45,28 @@ class ContextWindow:
         "assistant instructions",
 
         "reveal hidden prompt",
+
+        "Task 1:",
+
+        "Task 2:",
+
+        "SEO optimization",
+
+        "tutorial",
+
+        "tips",
+
+        "guide",
+
+        "Context:",
+
+        "User Query:",
+
+        "Session Context:",
+
+        "Relevant Semantic Memories:",
+
+        "Hot Memory Layer:",
     ]
 
     def __init__(self):
@@ -80,19 +104,24 @@ class ContextWindow:
             text
         ).strip()
 
+        lowered = text.lower()
+
         # ==========================================
         # INJECTION PROTECTION
         # ==========================================
-
-        lowered = text.lower()
 
         for pattern in (
             self.BLOCKED_PATTERNS
         ):
 
-            if pattern in lowered:
+            if pattern.lower() in lowered:
 
-                return ""
+                text = text.replace(
+                    pattern,
+                    ""
+                )
+
+        text = text.strip()
 
         # ==========================================
         # LIMIT LENGTH
@@ -130,9 +159,11 @@ class ContextWindow:
         for item in memories:
 
             query = (
-                item.get(
-                    "query",
-                    ""
+                str(
+                    item.get(
+                        "query",
+                        ""
+                    )
                 )
                 .strip()
                 .lower()
@@ -164,17 +195,21 @@ class ContextWindow:
         self,
         query,
         session_id=None,
-        top_k=3,
+        top_k=2,
     ):
 
         """
-        Build unified AI context.
+        Build optimized AI context.
         """
+
+        query = self.clean_text(
+            query
+        )
 
         logger.info(
 
-            f"Building context window "
-            f"for query: {query}"
+            f"Building optimized "
+            f"context for: {query}"
         )
 
         # ==========================================
@@ -240,16 +275,12 @@ class ContextWindow:
                 )
 
         logger.info(
-            "Context window built successfully."
+            "Optimized context built."
         )
 
         return {
 
-            "query": (
-                self.clean_text(
-                    query
-                )
-            ),
+            "query": query,
 
             "session_context": (
                 session_context
@@ -272,10 +303,6 @@ class ContextWindow:
         self,
         session_context,
     ):
-
-        """
-        Format session context.
-        """
 
         lines = []
 
@@ -310,9 +337,7 @@ class ContextWindow:
                 continue
 
             lines.append(
-
-                f"- {clean_key}: "
-                f"{clean_value}"
+                f"- {clean_key}: {clean_value}"
             )
 
         return lines
@@ -325,10 +350,6 @@ class ContextWindow:
         self,
         semantic_memories,
     ):
-
-        """
-        Format semantic memories.
-        """
 
         lines = []
 
@@ -347,15 +368,8 @@ class ContextWindow:
 
                 continue
 
-            score = item.get(
-                "final_score",
-                0,
-            )
-
             lines.append(
-
-                f"- {query} "
-                f"(score: {score})"
+                f"- {query}"
             )
 
         return lines
@@ -369,10 +383,6 @@ class ContextWindow:
         hot_memories,
     ):
 
-        """
-        Format hot memories.
-        """
-
         lines = []
 
         for item in hot_memories:
@@ -381,6 +391,13 @@ class ContextWindow:
                 "metadata",
                 {}
             )
+
+            if not isinstance(
+                metadata,
+                dict,
+            ):
+
+                metadata = {}
 
             title = metadata.get(
                 "title",
@@ -413,15 +430,9 @@ class ContextWindow:
     ):
 
         """
-        Convert context into
-        optimized AI prompt window.
+        Convert memory into
+        clean optimized prompt.
         """
-
-        lines = []
-
-        # ==========================================
-        # QUERY
-        # ==========================================
 
         query = (
             self.clean_text(
@@ -432,40 +443,7 @@ class ContextWindow:
             )
         )
 
-        lines.append(
-            f"User Query: {query}"
-        )
-
-        lines.append("")
-
-        # ==========================================
-        # SESSION CONTEXT
-        # ==========================================
-
-        session_context = context.get(
-            "session_context",
-            {}
-        )
-
-        if session_context:
-
-            formatted = (
-                self.format_session_context(
-                    session_context
-                )
-            )
-
-            if formatted:
-
-                lines.append(
-                    "Session Context:"
-                )
-
-                lines.extend(
-                    formatted
-                )
-
-                lines.append("")
+        lines = []
 
         # ==========================================
         # SEMANTIC MEMORIES
@@ -484,17 +462,9 @@ class ContextWindow:
                 )
             )
 
-            if formatted:
-
-                lines.append(
-                    "Relevant Semantic Memories:"
-                )
-
-                lines.extend(
-                    formatted
-                )
-
-                lines.append("")
+            lines.extend(
+                formatted
+            )
 
         # ==========================================
         # HOT MEMORIES
@@ -513,22 +483,68 @@ class ContextWindow:
                 )
             )
 
-            if formatted:
+            lines.extend(
+                formatted
+            )
 
-                lines.append(
-                    "Hot Memory Layer:"
+        # ==========================================
+        # SESSION CONTEXT
+        # ==========================================
+
+        session_context = context.get(
+            "session_context",
+            {}
+        )
+
+        if session_context:
+
+            formatted = (
+                self.format_session_context(
+                    session_context
                 )
+            )
 
-                lines.extend(
-                    formatted
-                )
+            lines.extend(
+                formatted
+            )
 
-        final_prompt = "\n".join(
+        clean_context = "\n".join(
             lines
         )
 
+        clean_context = clean_context[
+            :self.MAX_CONTEXT_LENGTH
+        ]
+
+        # ==========================================
+        # FINAL PROMPT
+        # ==========================================
+
+        final_prompt = f"""
+Write a complete SEO-friendly article in Hindi.
+
+Topic:
+{query}
+
+Helpful Context:
+{clean_context}
+
+Requirements:
+- minimum 2000 words
+- proper headings
+- beginner friendly
+- SEO optimized
+- practical examples
+- FAQ section
+- conclusion
+- human-like writing
+- avoid repetition
+
+Write naturally in detailed format.
+"""
+
         logger.info(
-            "Prompt context generated."
+            "Optimized prompt context generated."
         )
 
-        return final_prompt
+        return final_prompt.strip()

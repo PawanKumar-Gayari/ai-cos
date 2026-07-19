@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>AI COS SEO Intelligence</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f4f8;
+            padding: 30px;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: auto;
+        }
+
+        /* ================================ */
+        /* CARDS & LAYOUT */
+        /* ================================ */
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e5e8ec;
+        }
+
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #0a1428;
+            font-weight: 600;
+        }
+
+        .card h3 {
+            font-size: 16px;
+            margin: 20px 0 15px 0;
+            color: #0a1428;
+            font-weight: 600;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+
+        /* ================================ */
+        /* HEADER */
+        /* ================================ */
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 15px;
+            color: #0a1428;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .header-meta strong {
+            color: #0a1428;
+            margin-right: 8px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* ================================ */
+        /* STATUS & PROGRESS */
+        /* ================================ */
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: white;
+        }
+
+        .status-badge.pending {
+            background: #f59e0b;
+        }
+
+        .status-badge.running {
+            background: #3b82f6;
+        }
+
+        .status-badge.completed {
+            background: #10b981;
+        }
+
+        .status-badge.failed {
+            background: #ef4444;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .progress-bar-outer {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
+            border-radius: 20px;
+            transition: width 0.6s ease;
+            width: {{ progress }}%;
+        }
+
+        /* ================================ */
+        /* INSIGHT SUMMARY CARDS */
+        /* ================================ */
+
+        .summary-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+            border: 1px solid #e5e8ec;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .summary-card .label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .summary-card .value {
+            font-size: 28px;
+            color: #0a1428;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .subtext {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* ================================ */
+        /* BADGES & TAGS */
+        /* ================================ */
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 4px;
+            white-space: nowrap;
+        }
+
+        .badge-intent {
+            background: #dbeafe;
+            color: #0369a1;
+        }
+
+        .badge-journey {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .badge-temporal {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .badge-serp {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .badge-confidence {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .badge-cluster {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+
+        /* ================================ */
+        /* CONFIDENCE VISUALIZATION */
+        /* ================================ */
+
+        .confidence-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        .confidence-meter {
+            flex: 1;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 20px;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+            background-size: 300% 100%;
+        }
+
+        .confidence-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0a1428;
+            min-width: 45px;
+            text-align: right;
+        }
+
+        /* ================================ */
+        /* CLUSTERING VISUALIZATION */
+        /* ================================ */
+
+        .cluster-group {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .cluster-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .cluster-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0a1428;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cluster-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .cluster-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cluster-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .keyword-item {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #0a1428;
+        }
+
+        /* ================================ */
+        /* ADVANCED TABLE */
+        /* ================================ */
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table th {
+            background: #0f172a;
+            color: white;
+            padding: 14px;
+            text-align: left;
+            font-weight: 600;
+            border: none;
+            white-space: nowrap;
+        }
+
+        table td {
+            padding: 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .keyword-cell {
+            font-weight: 600;
+            color: #0a1428;
+        }
+
+        .metric {
+            font-weight: 600;
+            color: #0a1428;
+        }
+
+        /* ================================ */
+        /* SERP ECOSYSTEM */
+        /* ================================ */
+
+        .serp-indicator {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            text-align: center;
+            line-height: 24px;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            margin: 0 2px;
+        }
+
+        .serp-official {
+            background: #1f2937;
+        }
+
+        .serp-pdf {
+            background: #dc2626;
+        }
+
+        .serp-blog {
+            background: #3b82f6;
+        }
+
+        .serp-forum {
+            background: #8b5cf6;
+        }
+
+        .serp-mixed {
+            background: #f59e0b;
+        }
+
+        /* ================================ */
+        /* FILTERS */
+        /* ================================ */
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .filter-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        .filter-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* ================================ */
+        /* COMPETITOR INTELLIGENCE */
+        /* ================================ */
+
+        .competitor-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .competitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #cbd5e1;
+        }
+
+        .competitor-title {
+            font-weight: 600;
+            color: #0a1428;
+            font-size: 15px;
+        }
+
+        .competitor-url {
+            color: #0369a1;
+            text-decoration: none;
+            font-size: 12px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .competitor-url:hover {
+            text-decoration: underline;
+        }
+
+        .gap-indicator {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .intelligence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .intelligence-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .intelligence-label {
+            color: #64748b;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 11px;
+        }
+
+        .intelligence-content {
+            color: #0a1428;
+            line-height: 1.5;
+        }
+
+        /* ================================ */
+        /* BUTTONS */
+        /* ================================ */
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #0a1428;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        /* ================================ */
+        /* LISTS */
+        /* ================================ */
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        /* ================================ */
+        /* ERROR STATE */
+        /* ================================ */
+
+        .error-box {
+            background: #fee2e2;
+            color: #7f1d1d;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #fca5a5;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        /* ================================ */
+        /* RESPONSIVE */
+        /* ================================ */
+
+        @media (max-width: 768px) {
+
+            body {
+                padding: 15px;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .header {
+                flex-direction: column;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .grid,
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            table th,
+            table td {
+                padding: 10px;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                flex-direction: column;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- ========================================= -->
+    <!-- HEADER -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <div class="header">
+
+            <div>
+
+                <h1>SEO Intelligence Report</h1>
+
+                <div class="header-meta">
+
+                    <div>
+                        <strong>Keyword:</strong> {{ job.keyword }}
+                    </div>
+
+                    <div>
+                        <strong>Status:</strong>
+                        <span class="status-badge {{ status }}">{{ status }}</span>
+                    </div>
+
+                    <div>
+                        <strong>Generated:</strong> {{ job.created_at|date:"M d, Y" }}
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="header-actions">
+
+                <a href="/dashboard/keywords/" class="btn btn-secondary">
+                    ← Back
+                </a>
+
+                <a href="/dashboard/keywords/" class="btn">
+                    + New Research
+                </a>
+
+            </div>
+
+        </div>
+
+        {% if status == "running" or status == "pending" %}
+
+        <div class="progress-container">
+
+            <div class="progress-label">
+                <span>Analysis Progress</span>
+                <span>{{ progress }}%</span>
+            </div>
+
+            <div class="progress-bar-outer">
+                <div class="progress-bar-inner"></div>
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- AUTO REFRESH -->
+    <!-- ========================================= -->
+
+    {% if status == "running" or status == "pending" %}
+
+    <script>
+
+        setTimeout(function() {
+            location.reload();
+        }, 3000);
+
+    </script>
+
+    {% endif %}
+
+    <!-- ========================================= -->
+    <!-- COMPLETED RESULTS -->
+    <!-- ========================================= -->
+
+    {% if status == "completed" %}
+
+    <!-- ========================================= -->
+    <!-- INSIGHT SUMMARY -->
+    <!-- ========================================= -->
+
+    <div class="grid grid-2">
+
+        <div class="card summary-card">
+            <div class="label">Total Clusters</div>
+            <div class="value">{{ result.data.clusters|length|default:"0" }}</div>
+            <div class="subtext">keyword groupings</div>
+        </div>
+
+        <div class="card summary-card">
+            <div class="label">Avg Confidence</div>
+            <div class="value">{{ result.data.avg_confidence|default:"0" }}%</div>
+            <div class="subtext">intelligence quality</div>
+        </div>
+
+        <div class="card summary-card">
+            <div class="label">Dominant Intent</div>
+            <div class="value" style="font-size: 16px;">
+                {% if result.data.dominant_intent %}
+                    {{ result.data.dominant_intent|title }}
+                {% else %}
+                    Mixed
+                {% endif %}
+            </div>
+            <div class="subtext">most frequent intent</div>
+        </div>
+
+        <div class="card summary-card">
+            <div class="label">Keyword Opportunities</div>
+            <div class="value">{{ result.data.high_opportunity_count|default:"0" }}</div>
+            <div class="subtext">high opportunity terms</div>
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- FILTERS & SEARCH -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <div class="filters" id="filtersContainer">
+
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="keywordSearch" 
+                    placeholder="Search keywords, clusters..."
+                    aria-label="Search keywords"
+                >
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Intent:</span>
+                <button class="filter-btn active" data-filter="intent" data-value="all">All</button>
+                {% for intent in result.data.intents %}
+                <button class="filter-btn" data-filter="intent" data-value="{{ intent|lower }}">
+                    {{ intent|title }}
+                </button>
+                {% endfor %}
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Journey:</span>
+                <button class="filter-btn active" data-filter="journey" data-value="all">All</button>
+                <button class="filter-btn" data-filter="journey" data-value="awareness">Awareness</button>
+                <button class="filter-btn" data-filter="journey" data-value="consideration">Consideration</button>
+                <button class="filter-btn" data-filter="journey" data-value="decision">Decision</button>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">SERP:</span>
+                <button class="filter-btn active" data-filter="serp" data-value="all">All</button>
+                <button class="filter-btn" data-filter="serp" data-value="official">Official</button>
+                <button class="filter-btn" data-filter="serp" data-value="blog">Blog</button>
+                <button class="filter-btn" data-filter="serp" data-value="mixed">Mixed</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- CLUSTERING SECTION -->
+    <!-- ========================================= -->
+
+    {% if result.data.clusters %}
+
+    <div class="card">
+
+        <h2>Keyword Clusters</h2>
+
+        <div id="clustersContainer">
+
+            {% for cluster in result.data.clusters %}
+
+            <div class="cluster-group" data-cluster="{{ cluster.id|default:forloop.counter }}">
+
+                <div class="cluster-header">
+
+                    <div>
+
+                        <div class="cluster-title">
+                            <span style="
+                                display: inline-block;
+                                width: 10px;
+                                height: 10px;
+                                border-radius: 50%;
+                                background: #3b82f6;
+                            "></span>
+                            {{ cluster.label|default:"Cluster" }} {{ forloop.counter }}
+                        </div>
+
+                        <div style="margin-top: 8px;">
+
+                            <span class="badge badge-confidence">
+                                Confidence: {{ cluster.confidence|default:"0" }}%
+                            </span>
+
+                            {% if cluster.primary_intent %}
+                            <span class="badge badge-intent">
+                                {{ cluster.primary_intent|title }}
+                            </span>
+                            {% endif %}
+
+                            {% if cluster.journey_stage %}
+                            <span class="badge badge-journey">
+                                {{ cluster.journey_stage|title }}
+                            </span>
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="cluster-meta">
+                        <span>
+                            📊 {{ cluster.keywords|length|default:"0" }} keywords
+                        </span>
+                        <span>
+                            ✓ {{ cluster.confidence|default:"0" }}% confidence
+                        </span>
+                    </div>
+
+                </div>
+
+                <div class="cluster-keywords">
+                    {% for keyword in cluster.keywords %}
+                    <span class="keyword-item">{{ keyword }}</span>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+    <!-- ========================================= -->
+    <!-- ADVANCED KEYWORDS TABLE -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>Advanced Keyword Intelligence</h2>
+
+        <div class="table-wrapper">
+
+            <table id="keywordTable">
+
+                <thead>
+
+                    <tr>
+                        <th>Keyword</th>
+                        <th>Cluster</th>
+                        <th>Intent</th>
+                        <th>Journey</th>
+                        <th>Temporal</th>
+                        <th>Confidence</th>
+                        <th>SERP</th>
+                        <th>Score</th>
+                        <th>Volume</th>
+                        <th>Difficulty</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="keywordTableBody">
+
+                    {% for item in result.data.keyword_data %}
+
+                    <tr 
+                        class="keyword-row"
+                        data-keyword="{{ item.keyword|lower }}"
+                        data-intent="{{ item.intent|default:'mixed'|lower }}"
+                        data-journey="{{ item.journey_stage|default:'mixed'|lower }}"
+                        data-serp="{{ item.serp_type|default:'mixed'|lower }}"
+                    >
+
+                        <td class="keyword-cell">{{ item.keyword }}</td>
+
+                        <td>
+                            {% if item.cluster %}
+                            <span class="badge badge-cluster">
+                                {{ item.cluster }}
+                            </span>
+                            {% else %}
+                            <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.intent %}
+                            <span class="badge badge-intent">
+                                {{ item.intent|title }}
+                            </span>
+                            {% else %}
+                            <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.journey_stage %}
+                            <span class="badge badge-journey">
+                                {{ item.journey_stage|title|truncatechars:12 }}
+                            </span>
+                            {% else %}
+                            <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.temporal_class %}
+                            <span class="badge badge-temporal">
+                                {% if item.temporal_class == "2025" %}📅 2025
+                                {% elif item.temporal_class == "2026" %}📅 2026
+                                {% elif item.temporal_class == "latest" %}⚡ Latest
+                                {% elif item.temporal_class == "ongoing" %}♻️ Ongoing
+                                {% elif item.temporal_class == "archived" %}📦 Archived
+                                {% else %}{{ item.temporal_class }}
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="confidence-bar">
+                                <div class="confidence-meter">
+                                    <div 
+                                        class="confidence-fill"
+                                        style="width: {{ item.confidence_score|default:'50' }}%;"
+                                    ></div>
+                                </div>
+                                <span class="confidence-text">
+                                    {{ item.confidence_score|default:'0' }}%
+                                </span>
+                            </div>
+                        </td>
+
+                        <td>
+                            <div style="display: flex; gap: 2px;">
+                                {% if item.serp_ecosystem %}
+                                    {% if "official" in item.serp_ecosystem|lower %}
+                                    <span class="serp-indicator serp-official" title="Official">O</span>
+                                    {% endif %}
+                                    {% if "pdf" in item.serp_ecosystem|lower %}
+                                    <span class="serp-indicator serp-pdf" title="PDF">P</span>
+                                    {% endif %}
+                                    {% if "blog" in item.serp_ecosystem|lower %}
+                                    <span class="serp-indicator serp-blog" title="Blog">B</span>
+                                    {% endif %}
+                                    {% if "forum" in item.serp_ecosystem|lower %}
+                                    <span class="serp-indicator serp-forum" title="Forum">F</span>
+                                    {% endif %}
+                                {% else %}
+                                <span style="color: #94a3b8;">—</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td class="metric">{{ item.seo_score|default:"0" }}</td>
+
+                        <td class="metric">{{ item.volume|default:"—" }}</td>
+
+                        <td class="metric">{{ item.difficulty|default:"—" }}</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- SEMANTIC KEYWORDS & ENTITIES -->
+    <!-- ========================================= -->
+
+    <div class="grid grid-2">
+
+        <div class="card">
+
+            <h2>Semantic Keywords</h2>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                {% for keyword in result.data.semantic_keywords %}
+                <span class="badge badge-intent">{{ keyword }}</span>
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <h2>SEO Entities</h2>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                {% for entity in result.data.entities %}
+                <span class="badge badge-cluster">{{ entity }}</span>
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- TEMPORAL INTELLIGENCE -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>Temporal Intelligence</h2>
+
+        <div class="grid">
+
+            <div>
+
+                <h3>📅 2025 Keywords</h3>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                    {% for item in result.data.keyword_data %}
+                        {% if item.temporal_class == "2025" %}
+                        <span class="keyword-item">{{ item.keyword }}</span>
+                        {% endif %}
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+            <div>
+
+                <h3>📅 2026 Keywords</h3>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                    {% for item in result.data.keyword_data %}
+                        {% if item.temporal_class == "2026" %}
+                        <span class="keyword-item">{{ item.keyword }}</span>
+                        {% endif %}
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+            <div>
+
+                <h3>⚡ Latest Keywords</h3>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                    {% for item in result.data.keyword_data %}
+                        {% if item.temporal_class == "latest" %}
+                        <span class="keyword-item">{{ item.keyword }}</span>
+                        {% endif %}
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+            <div>
+
+                <h3>♻️ Ongoing Keywords</h3>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+                    {% for item in result.data.keyword_data %}
+                        {% if item.temporal_class == "ongoing" %}
+                        <span class="keyword-item">{{ item.keyword }}</span>
+                        {% endif %}
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- SEO RECOMMENDATIONS -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>SEO Recommendations</h2>
+
+        <ul>
+
+            {% for rec in result.data.recommendations.seo_recommendations %}
+            <li>{{ rec }}</li>
+            {% endfor %}
+
+        </ul>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- CONTENT STRATEGY -->
+    <!-- ========================================= -->
+
+    <div class="grid grid-2">
+
+        <div class="card">
+
+            <h2>Recommended Headings</h2>
+
+            <ul>
+
+                {% for heading in result.data.recommendations.recommended_headings %}
+                <li>{{ heading }}</li>
+                {% endfor %}
+
+            </ul>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Recommended FAQs</h2>
+
+            <ul>
+
+                {% for faq in result.data.recommendations.recommended_faqs %}
+                <li>{{ faq }}</li>
+                {% endfor %}
+
+            </ul>
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- PEOPLE ALSO ASK -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>People Also Ask</h2>
+
+        <ul>
+
+            {% for item in result.data.people_also_ask %}
+            <li>{{ item }}</li>
+            {% endfor %}
+
+        </ul>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- RELATED SEARCHES -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>Related Searches</h2>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+
+            {% for item in result.data.related_searches %}
+            <span class="badge badge-intent">{{ item }}</span>
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- COMPETITOR INTELLIGENCE -->
+    <!-- ========================================= -->
+
+    <div class="card">
+
+        <h2>Competitor Intelligence</h2>
+
+        {% for competitor in result.data.competitor_data %}
+
+        <div class="competitor-card">
+
+            <div class="competitor-header">
+
+                <div style="flex: 1;">
+
+                    <div class="competitor-title">
+                        {{ competitor.title }}
+                    </div>
+
+                    <a 
+                        href="{{ competitor.url }}" 
+                        target="_blank" 
+                        rel="noopener"
+                        class="competitor-url"
+                    >
+                        {{ competitor.url }}
+                    </a>
+
+                </div>
+
+                <div>
+
+                    {% if competitor.content_gap_score %}
+                    <span class="gap-indicator">
+                        Gap: {{ competitor.content_gap_score }}%
+                    </span>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            <div class="intelligence-grid">
+
+                <div class="intelligence-item">
+
+                    <div class="intelligence-label">Headings Used</div>
+
+                    <div class="intelligence-content">
+
+                        {% if competitor.headings %}
+                            {{ competitor.headings|length }} headings
+                        {% else %}
+                            No data
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                <div class="intelligence-item">
+
+                    <div class="intelligence-label">Missing Key Headings</div>
+
+                    <div class="intelligence-content">
+
+                        {% if competitor.missing_headings %}
+                            {{ competitor.missing_headings|length }} gaps
+                        {% else %}
+                            Complete coverage
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                <div class="intelligence-item">
+
+                    <div class="intelligence-label">Content Length</div>
+
+                    <div class="intelligence-content">
+
+                        {% if competitor.content_length %}
+                            {{ competitor.content_length }} words
+                        {% else %}
+                            Unknown
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                <div class="intelligence-item">
+
+                    <div class="intelligence-label">Weak Areas</div>
+
+                    <div class="intelligence-content">
+
+                        {% if competitor.weak_areas %}
+                            {% for area in competitor.weak_areas|slice:":2" %}
+                                <div>• {{ area }}</div>
+                            {% endfor %}
+                        {% else %}
+                            Competitive
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% if competitor.headings %}
+
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #cbd5e1;">
+
+                <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 10px;">
+                    Content Structure
+                </div>
+
+                <ul style="font-size: 12px; color: #475569;">
+
+                    {% for heading in competitor.headings|slice:":6" %}
+                    <li>{{ heading }}</li>
+                    {% endfor %}
+
+                    {% if competitor.headings|length > 6 %}
+                    <li style="color: #94a3b8;">... +{{ competitor.headings|length|add:"-6" }} more</li>
+                    {% endif %}
+
+                </ul>
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    <!-- ========================================= -->
+    <!-- JAVASCRIPT - LIGHTWEIGHT FILTERING -->
+    <!-- ========================================= -->
+
+    <script>
+
+        // State
+        const filterState = {
+            intent: 'all',
+            journey: 'all',
+            serp: 'all',
+            search: ''
+        };
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+
+            btn.addEventListener('click', (e) => {
+
+                const filterType = btn.dataset.filter;
+                const filterValue = btn.dataset.value;
+
+                // Update active state
+                document.querySelectorAll(`[data-filter="${filterType}"]`).forEach(b => {
+                    b.classList.remove('active');
+                });
+                btn.classList.add('active');
+
+                // Update state
+                filterState[filterType] = filterValue;
+
+                // Apply filters
+                applyFilters();
+
+            });
+
+        });
+
+        // Search input
+        const searchInput = document.getElementById('keywordSearch');
+        if (searchInput) {
+
+            searchInput.addEventListener('input', (e) => {
+                filterState.search = e.target.value.toLowerCase();
+                applyFilters();
+            });
+
+        }
+
+        // Apply filters
+        function applyFilters() {
+
+            const rows = document.querySelectorAll('#keywordTableBody .keyword-row');
+
+            rows.forEach(row => {
+
+                const keyword = row.dataset.keyword;
+                const intent = row.dataset.intent;
+                const journey = row.dataset.journey;
+                const serp = row.dataset.serp;
+
+                const matchesIntent = filterState.intent === 'all' || intent === filterState.intent;
+                const matchesJourney = filterState.journey === 'all' || journey === filterState.journey;
+                const matchesSerp = filterState.serp === 'all' || serp === filterState.serp;
+                const matchesSearch = keyword.includes(filterState.search);
+
+                const visible = matchesIntent && matchesJourney && matchesSerp && matchesSearch;
+
+                row.style.display = visible ? '' : 'none';
+
+            });
+
+        }
+
+    </script>
+
+    {% endif %}
+
+    <!-- ========================================= -->
+    <!-- FAILED STATE -->
+    <!-- ========================================= -->
+
+    {% if status == "failed" %}
+
+    <div class="card">
+
+        <h2>Analysis Failed</h2>
+
+        <div class="error-box">
+
+            <pre>{{ result.error }}</pre>
+
+        </div>
+
+        <a href="/dashboard/keywords/" class="btn" style="margin-top: 20px;">
+            ← Try Another Keyword
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+
+</html>

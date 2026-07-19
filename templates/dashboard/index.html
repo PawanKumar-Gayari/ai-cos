@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        AI COS Dashboard
+    </title>
+
+    <meta
+        name="description"
+        content="Enterprise AI Operations Dashboard"
+    >
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+</head>
+
+<body class="bg-[#f5f7fb] text-gray-900 antialiased">
+
+<!-- LIVE REFRESH -->
+
+<div
+
+    hx-get="/dashboard/api/stats/"
+
+    hx-trigger="load, every 5s"
+
+    hx-swap="none"
+
+></div>
+
+<!-- SIDEBAR -->
+
+{% include "dashboard/partials/sidebar.html" %}
+
+<!-- MAIN WRAPPER -->
+
+<div class="lg:ml-72 min-h-screen">
+
+    <!-- TOPBAR -->
+
+    <header class="sticky top-0 z-30 backdrop-blur-xl bg-white/80 border-b border-gray-200">
+
+        <div class="px-6 lg:px-10 py-6">
+
+            <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+
+                <!-- LEFT -->
+
+                <div class="mt-16 lg:mt-0">
+
+                    <div class="flex items-center gap-4">
+
+                        <div class="w-14 h-14 rounded-3xl bg-black text-white flex items-center justify-center text-2xl shadow-xl">
+
+                            🤖
+
+                        </div>
+
+                        <div>
+
+                            <h1 class="text-4xl font-black tracking-tight">
+
+                                AI COS
+
+                            </h1>
+
+                            <p class="text-gray-500 text-sm mt-1">
+
+                                Enterprise AI Infrastructure Platform
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- RIGHT -->
+
+                <div class="flex flex-wrap items-center gap-3">
+
+                    <!-- SEARCH -->
+
+                    <div class="hidden xl:flex items-center bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm w-80">
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="w-5 h-5 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"
+                            />
+
+                        </svg>
+
+                        <input
+                            type="text"
+                            placeholder="Search dashboard..."
+                            class="ml-3 w-full bg-transparent outline-none text-sm"
+                        >
+
+                    </div>
+
+                    <!-- STATUS -->
+
+                    <div class="bg-green-50 border border-green-200 px-5 py-3 rounded-2xl shadow-sm">
+
+                        <div class="flex items-center gap-3">
+
+                            <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+
+                            <span class="text-sm font-bold text-green-700">
+
+                                Systems Online
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <!-- GENERATE -->
+
+                    <a
+                        href="/dashboard/generator/"
+                        class="bg-black text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-gray-900 transition-all duration-300 shadow-lg"
+                    >
+
+                        + Generate
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <!-- MAIN CONTENT -->
+
+    <main class="p-6 lg:p-10">
+
+        <!-- HERO STATS -->
+
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+            <!-- CPU -->
+
+            <div class="bg-white rounded-[30px] p-8 shadow-sm border border-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+
+                <div class="flex items-center justify-between">
+
+                    <div>
+
+                        <p class="text-sm text-gray-500 font-semibold">
+
+                            CPU Usage
+
+                        </p>
+
+                        <h2
+                            id="cpu-stat"
+                            class="text-5xl font-black mt-5 tracking-tight"
+                        >
+
+                            {{ stats.cpu }}%
+
+                        </h2>
+
+                    </div>
+
+                    <div class="w-16 h-16 rounded-3xl bg-yellow-100 flex items-center justify-center text-3xl">
+
+                        ⚡
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- RAM -->
+
+            <div class="bg-white rounded-[30px] p-8 shadow-sm border border-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+
+                <div class="flex items-center justify-between">
+
+                    <div>
+
+                        <p class="text-sm text-gray-500 font-semibold">
+
+                            RAM Usage
+
+                        </p>
+
+                        <h2
+                            id="ram-stat"
+                            class="text-5xl font-black mt-5 tracking-tight"
+                        >
+
+                            {{ stats.ram }}%
+
+                        </h2>
+
+                    </div>
+
+                    <div class="w-16 h-16 rounded-3xl bg-blue-100 flex items-center justify-center text-3xl">
+
+                        🧠
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- QUEUE -->
+
+            <div class="bg-white rounded-[30px] p-8 shadow-sm border border-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+
+                <div class="flex items-center justify-between">
+
+                    <div>
+
+                        <p class="text-sm text-gray-500 font-semibold">
+
+                            Queue
+
+                        </p>
+
+                        <h2
+                            id="queue-stat"
+                            class="text-5xl font-black mt-5 tracking-tight text-blue-600"
+                        >
+
+                            {{ stats.queue }}
+
+                        </h2>
+
+                    </div>
+
+                    <div class="w-16 h-16 rounded-3xl bg-blue-100 flex items-center justify-center text-3xl">
+
+                        📦
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- PROVIDER -->
+
+            <div class="bg-white rounded-[30px] p-8 shadow-sm border border-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+
+                <div class="flex items-center justify-between">
+
+                    <div>
+
+                        <p class="text-sm text-gray-500 font-semibold">
+
+                            Provider
+
+                        </p>
+
+                        <h2
+                            id="provider-stat"
+                            class="text-3xl font-black mt-6 tracking-tight text-purple-600"
+                        >
+
+                            {{ stats.provider }}
+
+                        </h2>
+
+                    </div>
+
+                    <div class="w-16 h-16 rounded-3xl bg-purple-100 flex items-center justify-center text-3xl">
+
+                        🤖
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- QUICK ACTIONS -->
+
+        <section class="mt-14">
+
+            <div class="mb-8">
+
+                <h2 class="text-3xl font-black tracking-tight">
+
+                    Quick Actions
+
+                </h2>
+
+                <p class="text-gray-500 mt-2">
+
+                    Access AI systems instantly.
+
+                </p>
+
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+                <!-- GENERATOR -->
+
+                <a
+                    href="/dashboard/generator/"
+                    class="group bg-gradient-to-br from-black to-gray-900 text-white rounded-[30px] p-8 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                >
+
+                    <div class="text-6xl">
+
+                        ✍️
+
+                    </div>
+
+                    <h3 class="text-3xl font-black mt-7">
+
+                        Generator
+
+                    </h3>
+
+                    <p class="text-gray-300 mt-3 text-sm leading-relaxed">
+
+                        Generate enterprise-grade SEO content.
+
+                    </p>
+
+                </a>
+
+                <!-- MONITORING -->
+
+                <a
+                    href="/dashboard/monitoring/"
+                    class="bg-white rounded-[30px] p-8 border border-gray-200 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                >
+
+                    <div class="text-6xl">
+
+                        📡
+
+                    </div>
+
+                    <h3 class="text-3xl font-black mt-7">
+
+                        Monitoring
+
+                    </h3>
+
+                    <p class="text-gray-500 mt-3 text-sm leading-relaxed">
+
+                        Infrastructure analytics and monitoring.
+
+                    </p>
+
+                </a>
+
+                <!-- PUBLISHER -->
+
+                <a
+                    href="/api/publisher/"
+                    class="bg-white rounded-[30px] p-8 border border-gray-200 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                >
+
+                    <div class="text-6xl">
+
+                        🌐
+
+                    </div>
+
+                    <h3 class="text-3xl font-black mt-7">
+
+                        Publisher
+
+                    </h3>
+
+                    <p class="text-gray-500 mt-3 text-sm leading-relaxed">
+
+                        Publish directly to WordPress.
+
+                    </p>
+
+                </a>
+
+                <!-- REWRITER -->
+
+                <div class="bg-gray-100 border border-dashed border-gray-300 rounded-[30px] p-8 opacity-80">
+
+                    <div class="text-6xl">
+
+                        🔄
+
+                    </div>
+
+                    <h3 class="text-3xl font-black mt-7">
+
+                        Rewriter
+
+                    </h3>
+
+                    <p class="text-gray-500 mt-3 text-sm leading-relaxed">
+
+                        Coming soon.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- FEATURE CONTROLS -->
+
+        <section class="mt-16">
+
+            <div class="mb-8">
+
+                <h2 class="text-3xl font-black tracking-tight">
+
+                    AI Feature Controls
+
+                </h2>
+
+                <p class="text-gray-500 mt-2">
+
+                    Runtime AI engine controls and infrastructure management.
+
+                </p>
+
+            </div>
+
+            <div class="bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
+
+                {% for feature in features %}
+
+                <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6 p-7 border-b border-gray-100 hover:bg-gray-50 transition-all duration-300">
+
+                    <!-- LEFT -->
+
+                    <div class="flex-1">
+
+                        <div class="flex flex-wrap items-center gap-3">
+
+                            <h3 class="text-xl font-black">
+
+                                {{ feature.name }}
+
+                            </h3>
+
+                            {% if feature.experimental %}
+
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+
+                                Experimental
+
+                            </span>
+
+                            {% endif %}
+
+                            {% if feature.cpu_intensive %}
+
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+
+                                CPU Intensive
+
+                            </span>
+
+                            {% endif %}
+
+                        </div>
+
+                        <p class="text-sm text-gray-500 mt-2 break-all">
+
+                            {{ feature.key }}
+
+                        </p>
+
+                        {% if feature.description %}
+
+                        <p class="text-sm text-gray-600 mt-3 leading-relaxed max-w-3xl">
+
+                            {{ feature.description }}
+
+                        </p>
+
+                        {% endif %}
+
+                    </div>
+
+                    <!-- TOGGLE -->
+
+                    <div class="flex items-center gap-4">
+
+                        <span class="text-sm font-bold
+
+                            {% if feature.enabled %}
+
+                                text-green-600
+
+                            {% else %}
+
+                                text-red-500
+
+                            {% endif %}"
+
+                        >
+
+                            {% if feature.enabled %}
+
+                                Enabled
+
+                            {% else %}
+
+                                Disabled
+
+                            {% endif %}
+
+                        </span>
+
+                        <a
+
+                            href="{% url 'toggle-feature' feature.id %}"
+
+                            class="relative inline-flex h-9 w-16 items-center rounded-full transition-all duration-300 shadow-inner
+
+                            {% if feature.enabled %}
+
+                                bg-green-500
+
+                            {% else %}
+
+                                bg-gray-300
+
+                            {% endif %}"
+
+                        >
+
+                            <span
+
+                                class="inline-block h-7 w-7 transform rounded-full bg-white transition-transform duration-300 shadow-lg
+
+                                {% if feature.enabled %}
+
+                                    translate-x-8
+
+                                {% else %}
+
+                                    translate-x-1
+
+                                {% endif %}"
+
+                            ></span>
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- LIVE UPDATE -->
+
+<script>
+
+document.body.addEventListener(
+
+    "htmx:afterRequest",
+
+    function(event) {
+
+        try {
+
+            const response = JSON.parse(
+                event.detail.xhr.responseText
+            )
+
+            if (!response.success) {
+
+                return
+            }
+
+            const stats = response.stats
+
+            document.getElementById(
+                "cpu-stat"
+            ).innerText = (
+                stats.cpu + "%"
+            )
+
+            document.getElementById(
+                "ram-stat"
+            ).innerText = (
+                stats.ram + "%"
+            )
+
+            document.getElementById(
+                "queue-stat"
+            ).innerText = (
+                stats.queue
+            )
+
+            document.getElementById(
+                "provider-stat"
+            ).innerText = (
+                stats.provider
+            )
+
+        }
+
+        catch(error) {
+
+            console.error(
+                "Dashboard update failed",
+                error
+            )
+        }
+    }
+)
+
+</script>
+
+</body>
+
+</html>

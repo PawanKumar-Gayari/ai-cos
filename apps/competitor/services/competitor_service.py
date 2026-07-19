@@ -24,8 +24,16 @@ from apps.competitor.analyzer.weakness_detector import (
     WeaknessDetector,
 )
 
+from apps.competitor.analyzer.intent_classifier import (
+    IntentClassifier,
+)
+
 from apps.competitor.scoring.competitor_score import (
     CompetitorScore,
+)
+
+from apps.competitor.services.keyword_intelligence import (
+    KeywordIntelligenceService,
 )
 
 from apps.monitoring.models import (
@@ -46,6 +54,10 @@ from utils.exceptions import (
 
 
 class CompetitorService:
+
+    VERSION = "4.0.0"
+
+    DEFAULT_SCORE = 0
 
     def __init__(
         self
@@ -79,6 +91,18 @@ class CompetitorService:
             WeaknessDetector()
         )
 
+        self.intent_classifier = (
+            IntentClassifier()
+        )
+
+        # ==========================================
+        # KEYWORD INTELLIGENCE
+        # ==========================================
+
+        self.keyword_intelligence = (
+            KeywordIntelligenceService()
+        )
+
         # ==========================================
         # SCORING
         # ==========================================
@@ -86,6 +110,47 @@ class CompetitorService:
         self.competitor_score = (
             CompetitorScore()
         )
+
+    # ==================================================
+    # NORMALIZE KEYWORD
+    # ==================================================
+
+    def normalize_keyword(
+        self,
+        keyword,
+    ):
+
+        if not keyword:
+
+            return ""
+
+        return (
+            str(keyword)
+            .strip()
+            .lower()
+        )
+
+    # ==================================================
+    # SAFE FLOAT
+    # ==================================================
+
+    def safe_float(
+        self,
+        value,
+        default=0,
+    ):
+
+        try:
+
+            if value is None:
+
+                return float(default)
+
+            return float(value)
+
+        except Exception:
+
+            return float(default)
 
     # ==================================================
     # SAVE ENGINE EXECUTION
@@ -100,10 +165,28 @@ class CompetitorService:
     ):
 
         """
-        Save competitor engine execution.
+        Save competitor engine execution safely.
         """
 
         try:
+
+            keyword = (
+                self.normalize_keyword(
+                    keyword
+                )
+            )
+
+            execution_time = (
+                self.safe_float(
+                    execution_time
+                )
+            )
+
+            score = (
+                self.safe_float(
+                    score
+                )
+            )
 
             EngineExecution.objects.create(
 
@@ -120,6 +203,12 @@ class CompetitorService:
                 status=status,
 
                 score=score,
+            )
+
+            competitor_logger.info(
+
+                f"[ENGINE EXECUTION SAVED] "
+                f"KEYWORD={keyword}"
             )
 
         except Exception as error:
@@ -139,6 +228,8 @@ class CompetitorService:
         competition_analysis,
         gap_analysis,
         weakness_analysis,
+        intent_analysis,
+        keyword_intelligence,
     ):
 
         """
@@ -172,6 +263,28 @@ class CompetitorService:
                     0
                 )
             ),
+
+            "primary_intent": (
+                intent_analysis.get(
+                    "primary_intent"
+                )
+            ),
+
+            "semantic_keywords": len(
+
+                keyword_intelligence.get(
+                    "semantic_keywords",
+                    []
+                )
+            ),
+
+            "entities": len(
+
+                keyword_intelligence.get(
+                    "entities",
+                    []
+                )
+            ),
         }
 
     # ==================================================
@@ -189,14 +302,10 @@ class CompetitorService:
 
         start_time = time.time()
 
-        # ==========================================
-        # NORMALIZE KEYWORD
-        # ==========================================
-
         keyword = (
-            str(keyword)
-            .strip()
-            .lower()
+            self.normalize_keyword(
+                keyword
+            )
         )
 
         competitor_logger.info(
@@ -206,6 +315,26 @@ class CompetitorService:
         )
 
         try:
+
+            # ==========================================
+            # SEARCH INTENT
+            # ==========================================
+
+            intent_analysis = (
+                self.intent_classifier.classify(
+                    keyword
+                )
+            )
+
+            # ==========================================
+            # KEYWORD INTELLIGENCE
+            # ==========================================
+
+            keyword_intelligence = (
+                self.keyword_intelligence.fetch(
+                    keyword
+                )
+            )
 
             # ==========================================
             # SERP EXTRACTION
@@ -277,6 +406,8 @@ class CompetitorService:
                     gap_analysis,
 
                     weakness_analysis,
+
+                    intent_analysis,
                 )
             )
 
@@ -295,11 +426,14 @@ class CompetitorService:
             # ==========================================
 
             competition_score = (
-                competition_analysis.get(
+                self.safe_float(
 
-                    "competition_score",
+                    competition_analysis.get(
 
-                    0,
+                        "competition_score",
+
+                        self.DEFAULT_SCORE,
+                    )
                 )
             )
 
@@ -332,6 +466,10 @@ class CompetitorService:
                     gap_analysis,
 
                     weakness_analysis,
+
+                    intent_analysis,
+
+                    keyword_intelligence,
                 )
             )
 
@@ -343,13 +481,17 @@ class CompetitorService:
                 f"SCORE={competition_score}"
             )
 
-            # ==========================================
-            # RETURN RESULT
-            # ==========================================
-
             return {
 
                 "keyword": keyword,
+
+                "intent_analysis": (
+                    intent_analysis
+                ),
+
+                "keyword_intelligence": (
+                    keyword_intelligence
+                ),
 
                 "serp_results": (
                     serp_results
@@ -386,7 +528,7 @@ class CompetitorService:
                     ),
 
                     "version": (
-                        "2.2.0"
+                        self.VERSION
                     ),
 
                     "execution_time": (
@@ -416,22 +558,24 @@ class CompetitorService:
                 )
             )
 
-            # ==========================================
-            # SAVE FAILED EXECUTION
-            # ==========================================
+            try:
 
-            self.save_engine_execution(
+                self.save_engine_execution(
 
-                keyword=keyword,
+                    keyword=keyword,
 
-                execution_time=(
-                    execution_time
-                ),
+                    execution_time=(
+                        execution_time
+                    ),
 
-                status="failed",
+                    status="failed",
 
-                score=0,
-            )
+                    score=0,
+                )
+
+            except Exception:
+
+                pass
 
             raise CompetitorException(
 

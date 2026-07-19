@@ -17,7 +17,15 @@ logger = logging.getLogger(
 
 class JsonStore:
 
+    """
+    Enterprise-safe JSON storage layer.
+    """
+
     DEFAULT_DATA = []
+
+    # ==================================================
+    # INIT
+    # ==================================================
 
     def __init__(
         self,
@@ -183,9 +191,12 @@ class JsonStore:
 
         """
         Atomic JSON save.
+        Windows-safe implementation.
         """
 
         with self._lock:
+
+            temp_path = None
 
             try:
 
@@ -219,10 +230,13 @@ class JsonStore:
 
                     except Exception:
 
-                        pass
+                        logger.warning(
+                            "Backup creation failed."
+                        )
 
                 # ==========================================
-                # ATOMIC WRITE
+                # IMPORTANT:
+                # SAME DRIVE TEMP FILE
                 # ==========================================
 
                 with NamedTemporaryFile(
@@ -232,6 +246,11 @@ class JsonStore:
                     delete=False,
 
                     encoding="utf-8",
+
+                    dir=str(
+                        self.storage_path.parent
+                    ),
+
                 ) as temp_file:
 
                     json.dump(
@@ -249,8 +268,16 @@ class JsonStore:
                         temp_file.name
                     )
 
+                # ==========================================
+                # ATOMIC REPLACE
+                # ==========================================
+
                 temp_path.replace(
                     self.storage_path
+                )
+
+                logger.info(
+                    "JSON store saved."
                 )
 
                 return True
@@ -264,6 +291,27 @@ class JsonStore:
                 )
 
                 return False
+
+            finally:
+
+                # ==========================================
+                # CLEANUP
+                # ==========================================
+
+                try:
+
+                    if (
+
+                        temp_path
+                        and
+                        temp_path.exists()
+                    ):
+
+                        temp_path.unlink()
+
+                except Exception:
+
+                    pass
 
     # ==================================================
     # RESTORE BACKUP
@@ -351,6 +399,7 @@ class JsonStore:
                 return 0
 
             return (
+
                 self.storage_path
                 .stat()
                 .st_size

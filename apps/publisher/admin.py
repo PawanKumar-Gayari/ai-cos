@@ -5,16 +5,18 @@ Publisher admin configuration.
 from __future__ import annotations
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import (
+    format_html,
+)
 
 from apps.publisher.models import (
     PublishedPost,
 )
 
 
-# ==================================================
+# =========================================================
 # PUBLISHED POST ADMIN
-# ==================================================
+# =========================================================
 
 @admin.register(
     PublishedPost
@@ -23,19 +25,25 @@ class PublishedPostAdmin(
     admin.ModelAdmin
 ):
 
-    # ==============================================
+    # =====================================================
     # LIST DISPLAY
-    # ==============================================
+    # =====================================================
 
     list_display = (
 
+        "id",
+
         "article_title",
+
+        "provider",
 
         "status_badge",
 
         "wordpress_post_id",
 
         "publish_attempts",
+
+        "publish_duration",
 
         "short_url",
 
@@ -44,11 +52,13 @@ class PublishedPostAdmin(
         "created_at",
     )
 
-    # ==============================================
+    # =====================================================
     # FILTERS
-    # ==============================================
+    # =====================================================
 
     list_filter = (
+
+        "provider",
 
         "status",
 
@@ -57,9 +67,9 @@ class PublishedPostAdmin(
         "created_at",
     )
 
-    # ==============================================
+    # =====================================================
     # SEARCH
-    # ==============================================
+    # =====================================================
 
     search_fields = (
 
@@ -68,24 +78,30 @@ class PublishedPostAdmin(
         "wordpress_post_id",
 
         "wordpress_url",
+
+        "error_message",
     )
 
-    # ==============================================
+    # =====================================================
     # ORDERING
-    # ==============================================
+    # =====================================================
 
     ordering = (
 
         "-created_at",
     )
 
-    # ==============================================
+    # =====================================================
     # READONLY
-    # ==============================================
+    # =====================================================
 
     readonly_fields = (
 
         "article",
+
+        "provider",
+
+        "publish_method",
 
         "wordpress_post_id",
 
@@ -95,7 +111,13 @@ class PublishedPostAdmin(
 
         "error_message",
 
+        "error_code",
+
+        "last_error_at",
+
         "publish_attempts",
+
+        "publish_duration",
 
         "response_data",
 
@@ -106,15 +128,115 @@ class PublishedPostAdmin(
         "updated_at",
     )
 
-    # ==============================================
+    # =====================================================
     # PAGINATION
-    # ==============================================
+    # =====================================================
 
     list_per_page = 25
 
-    # ==================================================
+    # =====================================================
+    # DATE HIERARCHY
+    # =====================================================
+
+    date_hierarchy = (
+        "created_at"
+    )
+
+    # =====================================================
+    # FIELDSETS
+    # =====================================================
+
+    fieldsets = (
+
+        (
+
+            "Article Information",
+
+            {
+
+                "fields": (
+
+                    "article",
+
+                    "provider",
+
+                    "publish_method",
+                )
+            },
+        ),
+
+        (
+
+            "Publishing Data",
+
+            {
+
+                "fields": (
+
+                    "status",
+
+                    "wordpress_post_id",
+
+                    "wordpress_url",
+
+                    "publish_duration",
+
+                    "published_at",
+                )
+            },
+        ),
+
+        (
+
+            "Error Tracking",
+
+            {
+
+                "fields": (
+
+                    "error_message",
+
+                    "error_code",
+
+                    "last_error_at",
+
+                    "publish_attempts",
+                )
+            },
+        ),
+
+        (
+
+            "Response Data",
+
+            {
+
+                "fields": (
+
+                    "response_data",
+                )
+            },
+        ),
+
+        (
+
+            "Timestamps",
+
+            {
+
+                "fields": (
+
+                    "created_at",
+
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+    # =====================================================
     # CUSTOM METHODS
-    # ==================================================
+    # =====================================================
 
     @admin.display(
         description="Article"
@@ -128,9 +250,9 @@ class PublishedPostAdmin(
             obj.article.title
         )
 
-    # ==================================================
+    # =====================================================
     # STATUS BADGE
-    # ==================================================
+    # =====================================================
 
     @admin.display(
         description="Status"
@@ -142,19 +264,31 @@ class PublishedPostAdmin(
 
         color = "#6c757d"
 
-        if obj.status == "published":
+        if (
+            obj.status
+            == PublishedPost.STATUS_PUBLISHED
+        ):
 
             color = "#198754"
 
-        elif obj.status == "draft":
+        elif (
+            obj.status
+            == PublishedPost.STATUS_DRAFT
+        ):
 
             color = "#fd7e14"
 
-        elif obj.status == "failed":
+        elif (
+            obj.status
+            == PublishedPost.STATUS_FAILED
+        ):
 
             color = "#dc3545"
 
-        elif obj.status == "pending":
+        elif (
+            obj.status
+            == PublishedPost.STATUS_PENDING
+        ):
 
             color = "#0d6efd"
 
@@ -169,9 +303,9 @@ class PublishedPostAdmin(
             obj.status.upper(),
         )
 
-    # ==================================================
+    # =====================================================
     # SHORT URL
-    # ==================================================
+    # =====================================================
 
     @admin.display(
         description="WordPress URL"

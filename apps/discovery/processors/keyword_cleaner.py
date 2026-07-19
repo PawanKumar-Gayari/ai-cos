@@ -27,7 +27,7 @@ class KeywordCleaner:
     # STOPWORDS
     # =========================
 
-    STOPWORDS = [
+    STOPWORDS = {
 
         "a",
 
@@ -44,12 +44,35 @@ class KeywordCleaner:
         "with",
 
         "of",
-    ]
+    }
+
+    # =========================
+    # MINIMUM KEYWORD LENGTH
+    # =========================
+
+    MIN_KEYWORD_LENGTH = 2
 
     def clean(
         self,
         keywords
     ):
+
+        # =========================
+        # VALIDATE INPUT
+        # =========================
+
+        if not keywords:
+
+            logger.warning(
+                "No keywords received for cleaning"
+            )
+
+            return {
+
+                "total_keywords": 0,
+
+                "keywords": [],
+            }
 
         logger.info(
 
@@ -58,7 +81,7 @@ class KeywordCleaner:
         )
 
         # =========================
-        # VALID KEYWORDS
+        # CLEANED KEYWORDS
         # =========================
 
         cleaned_keywords = []
@@ -69,101 +92,122 @@ class KeywordCleaner:
 
         for keyword in keywords:
 
-            # =====================
-            # SKIP EMPTY
-            # =====================
+            try:
 
-            if not keyword:
+                # =====================
+                # SKIP EMPTY
+                # =====================
 
-                continue
+                if not keyword:
 
-            # =====================
-            # TEXT CLEANUP
-            # =====================
+                    continue
 
-            keyword = (
-                TextCleaner.clean(
-                    keyword,
-                    lowercase=True
+                # =====================
+                # TEXT CLEANUP
+                # =====================
+
+                keyword = (
+                    TextCleaner.clean(
+                        keyword,
+                        lowercase=True
+                    )
                 )
-            )
 
-            # =====================
-            # NORMALIZE KEYWORD
-            # =====================
+                # =====================
+                # NORMALIZE KEYWORD
+                # =====================
 
-            keyword = (
-                KeywordNormalizer.normalize(
+                keyword = (
+                    KeywordNormalizer.normalize(
+                        keyword
+                    )
+                )
+
+                # =====================
+                # REMOVE SPECIAL CHARS
+                # =====================
+
+                keyword = re.sub(
+
+                    r"[^a-zA-Z0-9\s]",
+
+                    " ",
+
                     keyword
                 )
-            )
 
-            # =====================
-            # REMOVE EXTRA SPACES
-            # =====================
+                # =====================
+                # REMOVE EXTRA SPACES
+                # =====================
 
-            keyword = re.sub(
+                keyword = re.sub(
 
-                r"\s+",
+                    r"\s+",
 
-                " ",
+                    " ",
 
-                keyword
-            )
+                    keyword
+                ).strip()
 
-            # =====================
-            # REMOVE SPECIAL CHARS
-            # =====================
+                # =====================
+                # SPLIT WORDS
+                # =====================
 
-            keyword = re.sub(
+                words = keyword.split()
 
-                r"[^a-z0-9\s]",
+                # =====================
+                # REMOVE STOPWORDS
+                # =====================
 
-                "",
+                filtered_words = [
 
-                keyword
-            )
+                    word
 
-            # =====================
-            # REMOVE STOPWORDS
-            # =====================
+                    for word in words
 
-            words = keyword.split()
+                    if word not in (
+                        self.STOPWORDS
+                    )
+                ]
 
-            filtered_words = [
-
-                word for word in words
-
-                if word not in (
-                    self.STOPWORDS
+                cleaned_keyword = (
+                    " ".join(
+                        filtered_words
+                    ).strip()
                 )
-            ]
 
-            cleaned_keyword = (
-                " ".join(
-                    filtered_words
+                # =====================
+                # SKIP EMPTY
+                # =====================
+
+                if not cleaned_keyword:
+
+                    continue
+
+                # =====================
+                # KEEP SEO SHORT TERMS
+                # =====================
+
+                if len(
+                    cleaned_keyword
+                ) < self.MIN_KEYWORD_LENGTH:
+
+                    continue
+
+                cleaned_keywords.append(
+                    cleaned_keyword
                 )
-            )
 
-            # =====================
-            # SKIP EMPTY
-            # =====================
+            except Exception as error:
 
-            if not cleaned_keyword:
+                logger.warning(
+
+                    f"Failed to clean keyword: "
+                    f"{keyword} | "
+                    f"{str(error)}"
+                )
 
                 continue
-
-            # =====================
-            # REMOVE VERY SHORT
-            # =====================
-
-            if len(cleaned_keyword) < 4:
-
-                continue
-
-            cleaned_keywords.append(
-                cleaned_keyword
-            )
 
         # =========================
         # REMOVE DUPLICATES

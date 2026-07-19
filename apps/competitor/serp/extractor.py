@@ -2,6 +2,18 @@
 SERP extractor for competitor intelligence engine.
 """
 
+from urllib.parse import (
+    urlparse,
+)
+
+from apps.competitor.serp.fetcher import (
+    SERPFetcher,
+)
+
+from apps.competitor.serp.parser import (
+    SERPParser,
+)
+
 from utils.keyword_normalizer import (
     KeywordNormalizer,
 )
@@ -25,71 +37,318 @@ from utils.logger import (
 
 class SERPExtractor:
 
-    MOCK_DOMAINS = [
+    MIN_WORD_COUNT = 300
 
-        "example.com",
+    MAX_RESULTS = 10
 
-        "sampleblog.com",
+    BLOCKED_DOMAINS = [
 
-        "techsite.com",
+        "reddit.com",
 
-        "contenthub.com",
+        "youtube.com",
 
-        "smartseo.com",
+        "amazon.",
+
+        "flipkart.",
+
+        "bestbuy.",
+
+        "facebook.com",
+
+        "instagram.com",
+
+        "twitter.com",
+
+        "x.com",
+
+        "smartprix.com",
     ]
+
+    BLOCKED_URL_PATTERNS = [
+
+        "/product/",
+
+        "/products/",
+
+        "/shop/",
+
+        "/store/",
+
+        "/buy/",
+
+        "/cart/",
+
+        "/watch",
+
+        "/video/",
+    ]
+
+    HIGH_QUALITY_KEYWORDS = [
+
+        "best",
+
+        "guide",
+
+        "review",
+
+        "comparison",
+
+        "tutorial",
+
+        "tips",
+
+        "top",
+
+        "vs",
+
+        "how to",
+    ]
+
+    def __init__(
+        self
+    ):
+
+        self.fetcher = (
+            SERPFetcher()
+        )
+
+        self.parser = (
+            SERPParser()
+        )
+
+    # ==================================================
+    # CLEAN TITLE
+    # ==================================================
 
     def clean_title(
         self,
         title,
     ):
 
-        """
-        Clean SEO title.
-        """
-
         return TextCleaner.clean(
             title
         )
 
-    def build_result(
+    # ==================================================
+    # DOMAIN FILTER
+    # ==================================================
+
+    def is_blocked_domain(
         self,
-        position,
-        title,
         url,
-        meta_description,
-        word_count,
-        headings,
-        content_type,
+    ):
+
+        parsed = urlparse(url)
+
+        domain = (
+            parsed.netloc.lower()
+        )
+
+        for blocked in (
+            self.BLOCKED_DOMAINS
+        ):
+
+            if blocked in domain:
+
+                return True
+
+        return False
+
+    # ==================================================
+    # URL PATTERN FILTER
+    # ==================================================
+
+    def is_blocked_pattern(
+        self,
+        url,
+    ):
+
+        lowered = url.lower()
+
+        for pattern in (
+            self.BLOCKED_URL_PATTERNS
+        ):
+
+            if pattern in lowered:
+
+                return True
+
+        return False
+
+    # ==================================================
+    # HIGH QUALITY TITLE
+    # ==================================================
+
+    def is_high_quality_title(
+        self,
+        title,
+    ):
+
+        lowered = title.lower()
+
+        for keyword in (
+            self.HIGH_QUALITY_KEYWORDS
+        ):
+
+            if keyword in lowered:
+
+                return True
+
+        return False
+
+    # ==================================================
+    # QUALITY FILTER
+    # ==================================================
+
+    def is_high_quality_result(
+        self,
+        result,
     ):
 
         """
-        Build SERP result structure.
+        Determine if SERP result
+        is useful for SEO analysis.
         """
 
-        cleaned_headings = [
+        url = result.get(
+            "url",
+            ""
+        )
 
-            TextCleaner.clean(
-                heading
+        title = result.get(
+            "title",
+            ""
+        )
+
+        if not url:
+
+            return False
+
+        # ==========================================
+        # BLOCK DOMAINS
+        # ==========================================
+
+        if self.is_blocked_domain(
+            url
+        ):
+
+            competitor_logger.warning(
+
+                f"[FILTERED DOMAIN] "
+                f"{url}"
             )
 
-            for heading in headings
-        ]
+            return False
+
+        # ==========================================
+        # BLOCK URL PATTERNS
+        # ==========================================
+
+        if self.is_blocked_pattern(
+            url
+        ):
+
+            competitor_logger.warning(
+
+                f"[FILTERED URL PATTERN] "
+                f"{url}"
+            )
+
+            return False
+
+        # ==========================================
+        # TITLE QUALITY
+        # ==========================================
+
+        if not self.is_high_quality_title(
+            title
+        ):
+
+            competitor_logger.warning(
+
+                f"[LOW QUALITY TITLE] "
+                f"{title}"
+            )
+
+            return False
+
+        return True
+
+    # ==================================================
+    # BUILD REAL RESULT
+    # ==================================================
+
+    def build_real_result(
+        self,
+        result,
+    ):
+
+        """
+        Build normalized real SERP result.
+        """
+
+        url = result.get(
+            "url",
+            ""
+        )
+
+        parsed_data = (
+            self.parser.parse_url(
+                url
+            )
+        )
+
+        headings = (
+            parsed_data.get(
+                "headings",
+                []
+            )
+        )
+
+        word_count = (
+            parsed_data.get(
+                "word_count",
+                0
+            )
+        )
+
+        # ==========================================
+        # LOW QUALITY CONTENT
+        # ==========================================
+
+        if word_count < (
+            self.MIN_WORD_COUNT
+        ):
+
+            competitor_logger.warning(
+
+                f"[FILTERED LOW WORD COUNT] "
+                f"{word_count} | "
+                f"{url}"
+            )
+
+            return None
 
         return {
 
-            "position": position,
+            "position": result.get(
+                "position",
+                0
+            ),
 
-            "title": (
-                self.clean_title(
-                    title
+            "title": TextCleaner.clean(
+                result.get(
+                    "title",
+                    ""
                 )
             ),
 
             "url": url,
 
-            "meta_description": (
-                TextCleaner.clean(
-                    meta_description
+            "meta_description": TextCleaner.clean(
+                result.get(
+                    "snippet",
+                    ""
                 )
             ),
 
@@ -98,187 +357,58 @@ class SERPExtractor:
             ),
 
             "content_type": (
-                content_type
+                "article"
             ),
 
             "seo_signals": {
 
                 "has_faq": (
-                    "FAQ" in headings
+                    any(
+                        "faq" in heading.lower()
+                        for heading in headings
+                    )
                 ),
 
                 "has_comparison": (
-                    "Comparison" in headings
+                    any(
+                        "comparison" in heading.lower()
+                        for heading in headings
+                    )
                 ),
 
                 "has_buying_guide": (
-                    "Buying Guide" in headings
+                    any(
+                        "buying guide" in heading.lower()
+                        for heading in headings
+                    )
                 ),
 
-                "internal_links": (
-                    10 + position
-                ),
+                "internal_links": 0,
 
-                "external_links": (
-                    3 + position
-                ),
+                "external_links": 0,
             },
 
-            "headings": (
-                cleaned_headings
-            ),
+            "headings": headings,
         }
 
-    def generate_mock_results(
-        self,
-        keyword,
-        keyword_slug,
-    ):
-
-        """
-        Generate mock SERP results.
-        """
-
-        title_1 = (
-            f"{KeywordNormalizer.add_prefix(keyword, 'best')} "
-            f"in 2026"
-        )
-
-        title_2 = (
-            f"Top 10 {keyword}"
-        )
-
-        title_3 = (
-            f"{keyword.title()} "
-            f"Review and Comparison"
-        )
-
-        serp_results = [
-
-            self.build_result(
-
-                position=1,
-
-                title=title_1,
-
-                url=(
-
-                    f"https://example.com/"
-                    f"{keyword_slug}"
-                ),
-
-                meta_description=(
-
-                    f"Complete guide about "
-                    f"{keyword} with reviews, "
-                    f"tips, and comparisons."
-                ),
-
-                word_count=3200,
-
-                headings=[
-
-                    "Introduction",
-
-                    "Features",
-
-                    "Pros and Cons",
-
-                    "Buying Guide",
-
-                    "Conclusion",
-                ],
-
-                content_type="guide",
-            ),
-
-            self.build_result(
-
-                position=2,
-
-                title=title_2,
-
-                url=(
-
-                    f"https://sampleblog.com/"
-                    f"top-{keyword_slug}"
-                ),
-
-                meta_description=(
-
-                    f"Discover the top "
-                    f"{keyword} options "
-                    f"available right now."
-                ),
-
-                word_count=2500,
-
-                headings=[
-
-                    "Overview",
-
-                    "Best Picks",
-
-                    "Comparison",
-
-                    "FAQ",
-                ],
-
-                content_type="listicle",
-            ),
-
-            self.build_result(
-
-                position=3,
-
-                title=title_3,
-
-                url=(
-
-                    f"https://techsite.com/"
-                    f"{keyword_slug}-review"
-                ),
-
-                meta_description=(
-
-                    f"Detailed {keyword} review "
-                    f"with pricing and "
-                    f"performance analysis."
-                ),
-
-                word_count=2800,
-
-                headings=[
-
-                    "Review",
-
-                    "Specifications",
-
-                    "Performance",
-
-                    "Verdict",
-                ],
-
-                content_type="review",
-            ),
-        ]
-
-        return serp_results
+    # ==================================================
+    # REMOVE DUPLICATES
+    # ==================================================
 
     def remove_duplicates(
         self,
         results,
     ):
 
-        """
-        Remove duplicate SERP titles.
-        """
-
         unique_results = []
 
         seen_titles = set()
 
         for result in results:
+
+            if not result:
+
+                continue
 
             title = (
                 result.get(
@@ -307,18 +437,43 @@ class SERPExtractor:
 
         return unique_results
 
+    # ==================================================
+    # FILTER SERP RESULTS
+    # ==================================================
+
+    def filter_serp_results(
+        self,
+        results,
+    ):
+
+        """
+        Filter low-quality SERP results.
+        """
+
+        filtered = []
+
+        for result in results:
+
+            if not self.is_high_quality_result(
+                result
+            ):
+
+                continue
+
+            filtered.append(
+                result
+            )
+
+        return filtered
+
+    # ==================================================
+    # EXTRACT
+    # ==================================================
+
     def extract(
         self,
         keyword,
     ):
-
-        """
-        Run SERP extraction.
-        """
-
-        # ==========================================
-        # NORMALIZE KEYWORD
-        # ==========================================
 
         keyword = (
             KeywordNormalizer.normalize(
@@ -333,30 +488,72 @@ class SERPExtractor:
         )
 
         # ==========================================
-        # SEO SLUG
+        # FETCH REAL RESULTS
         # ==========================================
 
-        keyword_slug = (
-            SEOHelpers.generate_slug(
+        real_results = (
+            self.fetcher.fetch_google_results(
                 keyword
             )
         )
 
+        serp_results = []
+
         # ==========================================
-        # GENERATE MOCK RESULTS
+        # USE REAL RESULTS
         # ==========================================
 
-        serp_results = (
-            self.generate_mock_results(
+        if real_results:
 
-                keyword,
+            competitor_logger.info(
 
-                keyword_slug,
+                f"Using real SERP results "
+                f"for keyword: {keyword}"
             )
-        )
+
+            # ==========================================
+            # FILTER RESULTS
+            # ==========================================
+
+            filtered_results = (
+                self.filter_serp_results(
+                    real_results
+                )
+            )
+
+            competitor_logger.info(
+
+                f"[FILTERED RESULTS] "
+                f"{len(filtered_results)} "
+                f"remaining"
+            )
+
+            # ==========================================
+            # BUILD RESULTS
+            # ==========================================
+
+            for result in filtered_results[
+
+                : self.MAX_RESULTS
+
+            ]:
+
+                parsed_result = (
+                    self.build_real_result(
+                        result
+                    )
+                )
+
+                if not parsed_result:
+
+                    continue
+
+                serp_results.append(
+                    parsed_result
+                )
 
         # ==========================================
-        # REMOVE DUPLICATES
+        # FINAL CLEANUP
         # ==========================================
 
         unique_results = (
@@ -369,12 +566,8 @@ class SERPExtractor:
 
             f"SERP extraction completed "
             f"with {len(unique_results)} "
-            f"results"
+            f"high-quality results"
         )
-
-        # ==========================================
-        # RETURN RESULT
-        # ==========================================
 
         return {
 

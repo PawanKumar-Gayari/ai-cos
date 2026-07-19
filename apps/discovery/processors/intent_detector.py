@@ -21,86 +21,135 @@ class IntentDetector:
     # INTENT PATTERNS
     # =========================
 
-    INFORMATIONAL_PATTERNS = [
+    INFORMATIONAL_PATTERNS = {
 
-        "how",
+        "how": 25,
 
-        "guide",
+        "guide": 20,
 
-        "tutorial",
+        "tutorial": 20,
 
-        "tips",
+        "tips": 15,
 
-        "learn",
+        "learn": 20,
 
-        "examples",
+        "examples": 15,
 
-        "what is",
+        "what is": 25,
 
-        "why",
+        "why": 25,
 
-        "strategy",
+        "strategy": 15,
 
-        "workflow",
-    ]
+        "workflow": 15,
 
-    COMMERCIAL_PATTERNS = [
+        "roadmap": 15,
 
-        "best",
+        "implementation": 15,
 
-        "top",
+        "best practices": 20,
+    }
 
-        "review",
+    COMMERCIAL_PATTERNS = {
 
-        "comparison",
+        "best": 25,
 
-        "vs",
+        "top": 20,
 
-        "alternatives",
+        "review": 25,
 
-        "features",
+        "comparison": 25,
 
-        "pros and cons",
-    ]
+        "vs": 20,
 
-    TRANSACTIONAL_PATTERNS = [
+        "alternatives": 20,
 
-        "buy",
+        "features": 15,
 
-        "price",
+        "pros and cons": 20,
 
-        "discount",
+        "comparison guide": 25,
+    }
 
-        "deal",
+    TRANSACTIONAL_PATTERNS = {
 
-        "coupon",
+        "buy": 30,
 
-        "cheap",
+        "price": 25,
 
-        "purchase",
+        "discount": 25,
 
-        "offer",
-    ]
+        "deal": 25,
 
-    NAVIGATIONAL_PATTERNS = [
+        "coupon": 25,
 
-        "login",
+        "cheap": 20,
 
-        "official",
+        "purchase": 30,
 
-        "website",
+        "offer": 20,
 
-        "app",
+        "pricing": 25,
+    }
 
-        "download",
+    NAVIGATIONAL_PATTERNS = {
 
-        "dashboard",
-    ]
+        "login": 30,
+
+        "official": 25,
+
+        "website": 25,
+
+        "app": 20,
+
+        "download": 25,
+
+        "dashboard": 25,
+
+        "portal": 25,
+    }
+
+    def _apply_patterns(
+        self,
+        keyword,
+        patterns
+    ):
+
+        score = 0
+
+        for pattern, weight in (
+            patterns.items()
+        ):
+
+            if pattern in keyword:
+
+                score += weight
+
+        return score
 
     def detect(
         self,
         keyword
     ):
+
+        # =========================
+        # VALIDATE INPUT
+        # =========================
+
+        if not keyword:
+
+            return {
+
+                "keyword": "",
+
+                "intent": "general",
+
+                "intent_score": 0,
+
+                "confidence_level": "low",
+
+                "all_scores": {},
+            }
 
         logger.info(
 
@@ -119,84 +168,46 @@ class IntentDetector:
         )
 
         # =========================
-        # INTENT SCORES
+        # CALCULATE SCORES
         # =========================
 
         scores = {
 
-            "informational": 0,
+            "informational": (
+                self._apply_patterns(
+                    keyword,
+                    self.INFORMATIONAL_PATTERNS
+                )
+            ),
 
-            "commercial": 0,
+            "commercial": (
+                self._apply_patterns(
+                    keyword,
+                    self.COMMERCIAL_PATTERNS
+                )
+            ),
 
-            "transactional": 0,
+            "transactional": (
+                self._apply_patterns(
+                    keyword,
+                    self.TRANSACTIONAL_PATTERNS
+                )
+            ),
 
-            "navigational": 0,
+            "navigational": (
+                self._apply_patterns(
+                    keyword,
+                    self.NAVIGATIONAL_PATTERNS
+                )
+            ),
         }
-
-        # =========================
-        # INFORMATIONAL MATCH
-        # =========================
-
-        for pattern in (
-            self.INFORMATIONAL_PATTERNS
-        ):
-
-            if pattern in keyword:
-
-                scores[
-                    "informational"
-                ] += 20
-
-        # =========================
-        # COMMERCIAL MATCH
-        # =========================
-
-        for pattern in (
-            self.COMMERCIAL_PATTERNS
-        ):
-
-            if pattern in keyword:
-
-                scores[
-                    "commercial"
-                ] += 20
-
-        # =========================
-        # TRANSACTIONAL MATCH
-        # =========================
-
-        for pattern in (
-            self.TRANSACTIONAL_PATTERNS
-        ):
-
-            if pattern in keyword:
-
-                scores[
-                    "transactional"
-                ] += 20
-
-        # =========================
-        # NAVIGATIONAL MATCH
-        # =========================
-
-        for pattern in (
-            self.NAVIGATIONAL_PATTERNS
-        ):
-
-            if pattern in keyword:
-
-                scores[
-                    "navigational"
-                ] += 20
 
         # =========================
         # DETERMINE TOP INTENT
         # =========================
 
         top_intent = max(
-
             scores,
-
             key=scores.get
         )
 
@@ -209,7 +220,7 @@ class IntentDetector:
         # DEFAULT GENERAL
         # =========================
 
-        if top_score == 0:
+        if top_score <= 0:
 
             top_intent = "general"
 
@@ -247,7 +258,9 @@ class IntentDetector:
 
         return {
 
-            "keyword": keyword,
+            "keyword": (
+                keyword
+            ),
 
             "intent": (
                 top_intent

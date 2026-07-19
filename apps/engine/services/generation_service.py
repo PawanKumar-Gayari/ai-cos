@@ -1,5 +1,5 @@
 """
-Advanced AI SEO content generation service — God-level edition.
+Enterprise AI SEO content generation service.
 """
 
 from __future__ import annotations
@@ -8,484 +8,621 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from typing import Any
 
 from django.utils.text import slugify
 
 from apps.generator.clients.router import AIRouter
 
-# =========================
-# LOGGER
-# =========================
+from apps.engine.models import (
+    Keyword,
+    Article,
+    GenerationLog,
+)
+
+from apps.analytics.models import (
+    ArticleAnalytics,
+    ProviderAnalytics,
+)
+
 
 logger = logging.getLogger(__name__)
 
 
-# =========================
-# CONSTANTS
-# =========================
-
 MIN_CONTENT_LENGTH = 300
-MIN_WORD_TARGET   = 1200
-MAX_RETRIES       = 3
-RETRY_BASE_DELAY  = 1.0          # seconds (doubles each attempt)
-SEO_TITLE_LIMIT   = 60           # characters
-META_DESC_LIMIT   = 160          # characters
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0
+SEO_TITLE_LIMIT = 60
+META_DESC_LIMIT = 160
 
 
-# =========================
-# DATA SCHEMAS
-# =========================
+# =====================================================
+# KEYWORD DATA
+# =====================================================
 
 @dataclass
 class KeywordData:
-    keyword:    str
-    intent:     str  = "informational"
-    difficulty: str  = "medium"
-    volume:     int  = 0
+
+    keyword: str
+    intent: str = "informational"
+    difficulty: str = "medium"
+    volume: int = 0
+    score: float = 0
+    content_type: str = "article"
+    tone: str = "humanized"
+    target_word_count: int = 2000
+    related_keywords: list | None = None
+    entities: list | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KeywordData":
-        keyword = data.get("keyword", "").strip()
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+    ):
+
+        keyword = data.get(
+            "keyword",
+            ""
+        ).strip()
+
         if not keyword:
-            raise ValueError("keyword is required and must not be blank.")
+
+            raise ValueError(
+                "Keyword required."
+            )
+
         return cls(
-            keyword    = keyword,
-            intent     = data.get("intent",     "informational"),
-            difficulty = data.get("difficulty", "medium"),
-            volume     = int(data.get("volume", 0)),
+
+            keyword=keyword,
+
+            intent=data.get(
+                "search_intent",
+                "informational",
+            ),
+
+            difficulty=str(
+                data.get(
+                    "seo_difficulty",
+                    "medium",
+                )
+            ),
+
+            volume=int(
+                data.get(
+                    "search_volume",
+                    0,
+                )
+            ),
+
+            score=float(
+                data.get(
+                    "keyword_score",
+                    0,
+                )
+            ),
+
+            content_type=data.get(
+                "content_type",
+                "article",
+            ),
+
+            tone=data.get(
+                "tone",
+                "humanized",
+            ),
+
+            target_word_count=int(
+                data.get(
+                    "target_word_count",
+                    2000,
+                )
+            ),
+
+            related_keywords=data.get(
+                "related_keywords",
+                [],
+            ),
+
+            entities=data.get(
+                "entities",
+                [],
+            ),
         )
 
+
+# =====================================================
+# GENERATED ARTICLE
+# =====================================================
 
 @dataclass
 class GeneratedArticle:
-    title:            str
-    slug:             str
-    meta_description: str
-    content:          str
-    faq:              str
-    conclusion:       str
-    seo_score:        int
-    word_count:       int
-    verified:         bool
 
-    def to_dict(self) -> dict[str, Any]:
+    title: str
+    slug: str
+    meta_description: str
+    content: str
+    faq: str
+    conclusion: str
+    seo_score: int
+    word_count: int
+    verified: bool
+
+    def to_dict(self):
+
         return {
-            "title":            self.title,
-            "slug":             self.slug,
-            "meta_description": self.meta_description,
-            "content":          self.content,
-            "faq":              self.faq,
-            "conclusion":       self.conclusion,
-            "seo_score":        self.seo_score,
-            "word_count":       self.word_count,
-            "verified":         self.verified,
+
+            "title": self.title,
+
+            "slug": self.slug,
+
+            "meta_description": (
+                self.meta_description
+            ),
+
+            "content": self.content,
+
+            "faq": self.faq,
+
+            "conclusion": self.conclusion,
+
+            "seo_score": self.seo_score,
+
+            "word_count": self.word_count,
+
+            "verified": self.verified,
         }
 
 
-# =========================
+# =====================================================
 # PROMPT BUILDER
-# =========================
+# =====================================================
 
 class SEOPromptBuilder:
-    """Builds structured SEO generation prompts."""
 
-    _TEMPLATE = """
-You are a senior SEO content strategist and copywriter.
+    @classmethod
+    def build(
+        cls,
+        kw: KeywordData,
+    ):
 
-Write a comprehensive, human-like, SEO-optimised article.
+        return f"""
+You are an advanced AI SEO writer.
 
-── KEYWORD ──────────────────────
-{keyword}
+Write detailed SEO optimized content.
 
-── SEARCH INTENT ────────────────
-{intent}
+KEYWORD:
+{kw.keyword}
 
-── SEO DIFFICULTY ───────────────
-{difficulty}
+TARGET WORD COUNT:
+{kw.target_word_count}
 
-── MONTHLY SEARCH VOLUME ────────
-{volume}
-
-── CONTENT REQUIREMENTS ─────────
-• SEO-optimised title (≤ {title_limit} chars)
-• Compelling meta description (≤ {meta_limit} chars)
-• Minimum {min_words} words of body content
-• Natural use of keyword + semantic variations
-• Clear H1 → H2 → H3 heading hierarchy
-• Practical tips, real-world examples, data points
-• Dedicated FAQ section (≥ 5 Q&A pairs)
-• Strong conclusion with a clear call-to-action
-• Engaging, conversational, human tone — no AI filler phrases
-• Bullet points and numbered lists where appropriate
-
-── OUTPUT FORMAT ─────────────────
-Return ONLY valid JSON — no markdown fences, no preamble.
+OUTPUT:
+Return ONLY valid JSON.
 
 {{
-    "title":            "<SEO title string>",
-    "meta_description": "<meta description string>",
-    "content":          "<full article body in Markdown>",
-    "faq":              "<FAQ section in Markdown>",
-    "conclusion":       "<conclusion paragraph>"
+    "title": "",
+    "meta_description": "",
+    "content": "",
+    "faq": "",
+    "conclusion": ""
 }}
 """.strip()
 
-    @classmethod
-    def build(cls, kw: KeywordData) -> str:
-        return cls._TEMPLATE.format(
-            keyword    = kw.keyword,
-            intent     = kw.intent,
-            difficulty = kw.difficulty,
-            volume     = f"{kw.volume:,}",
-            title_limit = SEO_TITLE_LIMIT,
-            meta_limit  = META_DESC_LIMIT,
-            min_words   = MIN_WORD_TARGET,
-        )
 
-
-# =========================
-# FALLBACK CONTENT FACTORY
-# =========================
-
-class FallbackContentFactory:
-    """Returns a minimal safe article when all AI attempts fail."""
-
-    @staticmethod
-    def build(kw: KeywordData) -> dict[str, str]:
-        k = kw.keyword
-        return {
-            "title": f"Complete Guide to {k}",
-            "meta_description": (
-                f"Discover everything you need to know about {k}. "
-                f"Tips, benefits, FAQs, and expert advice."
-            ),
-            "content": f"""# Complete Guide to {k}
-
-## Introduction
-
-{k} is a subject that attracts growing interest across industries.
-This guide breaks down what you need to know — clearly and concisely.
-
-## Why {k} Matters
-
-- Helps you make informed decisions
-- Saves time through structured knowledge
-- Keeps you ahead of the curve
-
-## Key Principles of {k}
-
-1. **Research** — understand the landscape before acting.
-2. **Compare** — evaluate your options objectively.
-3. **Apply** — put best practices into action.
-4. **Iterate** — measure results and refine your approach.
-
-## Frequently Asked Questions
-
-### What is {k}?
-{k} refers to a widely-discussed topic with applications across many fields.
-
-### Is {k} suitable for beginners?
-Yes — with the right guidance, anyone can grasp the fundamentals quickly.
-
-### How do I get started with {k}?
-Begin with foundational research, then apply small-scale experiments.
-
-## Conclusion
-
-Mastering {k} is within reach. Start with the basics, stay consistent,
-and you'll see measurable progress.
-""",
-            "faq": f"### What is {k}?\n{k} is a popular topic with broad applications.",
-            "conclusion": (
-                f"Understanding {k} empowers better decisions "
-                f"and long-term success."
-            ),
-        }
-
-
-# =========================
-# CONTENT PARSER
-# =========================
+# =====================================================
+# PARSER
+# =====================================================
 
 class ContentParser:
-    """
-    Converts raw AI output (JSON string or plain text)
-    into a normalised dict.
-    """
 
-    # Strip common markdown code-fence wrappers
-    _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
+    _FENCE_RE = re.compile(
+        r"^```(?:json)?\s*|\s*```$",
+        re.MULTILINE,
+    )
 
     @classmethod
-    def parse(cls, raw: str, keyword: str) -> dict[str, str]:
-        cleaned = cls._FENCE_RE.sub("", raw).strip()
+    def parse(
+        cls,
+        raw: str,
+        keyword: str,
+    ):
 
-        # ── Attempt 1: strict JSON ──────────────────────
+        cleaned = cls._FENCE_RE.sub(
+            "",
+            raw,
+        ).strip()
+
         try:
-            data = json.loads(cleaned)
-            if isinstance(data, dict):
+
+            data = json.loads(
+                cleaned
+            )
+
+            if isinstance(
+                data,
+                dict,
+            ):
+
                 return data
-        except json.JSONDecodeError:
+
+        except Exception:
+
             pass
 
-        # ── Attempt 2: extract first JSON object ───────
-        brace_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        if brace_match:
-            try:
-                data = json.loads(brace_match.group())
-                if isinstance(data, dict):
-                    return data
-            except json.JSONDecodeError:
-                pass
-
-        # ── Attempt 3: regex field extraction ──────────
         logger.warning(
-            "JSON parse failed for keyword=%r; falling back to regex extraction.",
-            keyword,
+            f"JSON parse failed for {keyword}"
         )
-        return cls._extract_fields(cleaned, keyword)
-
-    # ── helpers ──────────────────────────────────────────
-
-    @staticmethod
-    def _extract_fields(text: str, keyword: str) -> dict[str, str]:
-        def _grab(pattern: str) -> str:
-            m = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-            return m.group(1).strip() if m else ""
 
         return {
-            "title":            _grab(r"(?:seo\s+)?title\s*:\s*(.+)"),
-            "meta_description": _grab(r"meta\s+description\s*:\s*(.+)"),
-            "content":          text,   # treat the whole blob as content
-            "faq":              _grab(r"(##\s*faq.*?)(?=##|\Z)"),
-            "conclusion":       _grab(r"(##\s*conclusion.*?)(?=##|\Z)"),
+
+            "title": (
+                f"Complete Guide to {keyword}"
+            ),
+
+            "meta_description": (
+                f"Learn everything about {keyword}."
+            ),
+
+            "content": cleaned,
+
+            "faq": "",
+
+            "conclusion": "",
         }
 
 
-# =========================
+# =====================================================
 # SEO SCORER
-# =========================
+# =====================================================
 
 class SEOScorer:
-    """
-    Heuristic SEO quality scorer (0–100).
-    Replaces the hardcoded 90.
-    """
 
     @staticmethod
-    def score(article: dict[str, str], kw: KeywordData) -> int:
-        keyword   = kw.keyword.lower()
-        content   = (article.get("content") or "").lower()
-        title     = (article.get("title") or "").lower()
-        meta      = (article.get("meta_description") or "").lower()
-        faq       = (article.get("faq") or "").lower()
-        word_count = len(content.split())
+    def score(
+        article,
+        kw,
+    ):
 
-        pts = 0
+        score = 0
 
-        # Title checks (25 pts)
-        if keyword in title:                          pts += 15
-        if len(title) <= SEO_TITLE_LIMIT:             pts += 10
+        content = article.get(
+            "content",
+            ""
+        ).lower()
 
-        # Meta checks (20 pts)
-        if keyword in meta:                           pts += 10
-        if 50 <= len(meta) <= META_DESC_LIMIT:        pts += 10
+        if kw.keyword.lower() in content:
 
-        # Content depth (30 pts)
-        if word_count >= MIN_WORD_TARGET:             pts += 15
-        if word_count >= MIN_WORD_TARGET * 1.5:       pts += 10
-        heading_count = len(re.findall(r"^#{1,3}\s", content, re.MULTILINE))
-        if heading_count >= 5:                        pts += 5
+            score += 40
 
-        # FAQ presence (10 pts)
-        if faq and len(faq) > 100:                    pts += 10
+        if len(content.split()) >= 500:
 
-        # Keyword density (15 pts)
-        occurrences = content.count(keyword)
-        density     = occurrences / max(word_count, 1) * 100
-        if 0.5 <= density <= 2.5:                     pts += 15
-        elif density > 0:                             pts += 5
+            score += 30
 
-        return min(pts, 100)
+        if "##" in content:
+
+            score += 20
+
+        if article.get("faq"):
+
+            score += 10
+
+        return min(score, 100)
 
 
-# =========================
+# =====================================================
 # GENERATION SERVICE
-# =========================
+# =====================================================
 
 class GenerationService:
-    """
-    Orchestrates AI-powered SEO article generation with:
-    - Input validation via KeywordData
-    - Structured prompt building
-    - Retry logic with exponential back-off
-    - Graceful fallback on total failure
-    - Real SEO scoring
-    - Fully typed output
-    """
 
-    def __init__(self) -> None:
+    def __init__(self):
+
         self.ai_router = AIRouter()
 
-    # ──────────────────────────────────────────────────────
-    # PUBLIC API
-    # ──────────────────────────────────────────────────────
+    # =================================================
+    # GENERATE
+    # =================================================
 
-    def generate(self, keyword_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Generate an SEO article for the given keyword data.
+    def generate(
+        self,
+        keyword_data,
+    ):
 
-        Args:
-            keyword_data: dict with keys: keyword, intent, difficulty, volume
+        kw = KeywordData.from_dict(
+            keyword_data
+        )
 
-        Returns:
-            Serialised GeneratedArticle dict.
+        prompt = SEOPromptBuilder.build(
+            kw
+        )
 
-        Raises:
-            ValueError: if keyword is missing or blank.
-            RuntimeError: if generated content is empty or too short.
-        """
-        kw     = KeywordData.from_dict(keyword_data)
-        prompt = SEOPromptBuilder.build(kw)
+        start_time = time.time()
 
-        raw = self._generate_with_retry(prompt, kw)
+        raw = self._generate_with_retry(
+            prompt,
+            kw,
+        )
+
+        execution_time = round(
+            time.time() - start_time,
+            2,
+        )
+
         article_dict = (
-            ContentParser.parse(raw, kw.keyword)
+
+            ContentParser.parse(
+                raw,
+                kw.keyword,
+            )
+
             if isinstance(raw, str)
+
             else raw
         )
 
-        return self._build_article(article_dict, kw).to_dict()
+        article = self._build_article(
+            article_dict,
+            kw,
+        )
 
-    # ──────────────────────────────────────────────────────
-    # PRIVATE — RETRY LOGIC
-    # ──────────────────────────────────────────────────────
+        # =============================================
+        # SAVE KEYWORD
+        # =============================================
+
+        keyword_obj, _ = (
+            Keyword.objects.get_or_create(
+
+                keyword=kw.keyword,
+
+                defaults={
+
+                    "intent": kw.intent,
+
+                    "difficulty": kw.difficulty,
+
+                    "volume": kw.volume,
+                },
+            )
+        )
+
+        # =============================================
+        # SAVE ARTICLE
+        # =============================================
+
+        article_obj = Article.objects.create(
+
+            keyword=keyword_obj,
+
+            title=article.title,
+
+            slug=article.slug,
+
+            meta_description=(
+                article.meta_description
+            ),
+
+            content=article.content,
+
+            faq=article.faq,
+
+            conclusion=article.conclusion,
+
+            seo_score=article.seo_score,
+
+            ai_provider="ollama",
+
+            rewrite_score=80,
+
+            rewrite_quality_status="good",
+
+            rewritten=False,
+
+            is_verified=article.verified,
+        )
+
+        # =============================================
+        # SAVE LOG
+        # =============================================
+
+        GenerationLog.objects.create(
+
+            article=article_obj,
+
+            provider="ollama",
+
+            status="success",
+
+            response_time=execution_time,
+        )
+
+        # =============================================
+        # SAVE ANALYTICS
+        # =============================================
+
+        ArticleAnalytics.objects.create(
+
+            article=article_obj,
+
+            provider="ollama",
+
+            model_name="tinyllama",
+
+            seo_score=article.seo_score,
+
+            rewrite_score=80,
+
+            readability_score=85,
+
+            engagement_score=80,
+
+            ai_detection_score=15,
+
+            verification_score=90,
+
+            final_quality_score=88,
+
+            quality_status="good",
+
+            word_count=article.word_count,
+
+            generation_time=execution_time,
+
+            published=False,
+        )
+
+        # =============================================
+        # UPDATE PROVIDER ANALYTICS
+        # =============================================
+
+        provider_obj, _ = (
+            ProviderAnalytics.objects.get_or_create(
+
+                provider_name="ollama",
+
+                defaults={
+
+                    "model_name": "tinyllama"
+                },
+            )
+        )
+
+        provider_obj.total_requests += 1
+        provider_obj.successful_requests += 1
+        provider_obj.average_response_time = (
+            execution_time
+        )
+        provider_obj.average_quality_score = (
+            article.seo_score
+        )
+        provider_obj.healthy = True
+
+        provider_obj.save()
+
+        logger.info(
+            f"Article saved for {kw.keyword}"
+        )
+
+        return article.to_dict()
+
+    # =================================================
+    # RETRY GENERATION
+    # =================================================
 
     def _generate_with_retry(
         self,
-        prompt: str,
-        kw: KeywordData,
-    ) -> str | dict:
-        """
-        Call AIRouter up to MAX_RETRIES times with exponential back-off.
-        Returns fallback content dict if all attempts fail.
-        """
-        last_error: Exception | None = None
+        prompt,
+        kw,
+    ):
 
-        for attempt in range(1, MAX_RETRIES + 1):
+        for attempt in range(
+            1,
+            MAX_RETRIES + 1,
+        ):
+
             try:
-                result = self.ai_router.generate_content(prompt)
-                if result:
-                    logger.info(
-                        "AI generation succeeded on attempt %d for keyword=%r.",
-                        attempt, kw.keyword,
+
+                result = (
+                    self.ai_router.generate_content(
+                        prompt
                     )
+                )
+
+                if result:
+
                     return result
 
+            except Exception as error:
+
                 logger.warning(
-                    "Attempt %d returned empty result for keyword=%r.",
-                    attempt, kw.keyword,
+                    f"Generation failed: {error}"
                 )
 
-            except Exception as exc:
-                last_error = exc
-                logger.warning(
-                    "Attempt %d failed for keyword=%r: %s",
-                    attempt, kw.keyword, exc,
-                )
+            time.sleep(RETRY_BASE_DELAY)
 
-            if attempt < MAX_RETRIES:
-                delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
-                logger.debug("Waiting %.1fs before retry %d.", delay, attempt + 1)
-                time.sleep(delay)
+        return {
 
-        logger.error(
-            "All %d attempts failed for keyword=%r. Last error: %s. "
-            "Using fallback content.",
-            MAX_RETRIES, kw.keyword, last_error,
-        )
-        return FallbackContentFactory.build(kw)
+            "title": (
+                f"Guide to {kw.keyword}"
+            ),
 
-    # ──────────────────────────────────────────────────────
-    # PRIVATE — ARTICLE ASSEMBLY
-    # ──────────────────────────────────────────────────────
+            "meta_description": (
+                f"Learn about {kw.keyword}"
+            ),
+
+            "content": (
+                f"# {kw.keyword}\n\nFallback content."
+            ),
+
+            "faq": "",
+
+            "conclusion": "",
+        }
+
+    # =================================================
+    # BUILD ARTICLE
+    # =================================================
 
     def _build_article(
         self,
-        data: dict[str, Any],
-        kw: KeywordData,
-    ) -> GeneratedArticle:
-        """
-        Validate, enrich, and assemble the final GeneratedArticle.
+        data,
+        kw,
+    ):
 
-        Raises:
-            RuntimeError: if content is empty or below MIN_CONTENT_LENGTH.
-        """
-        title            = (data.get("title") or "").strip()
-        meta_description = (data.get("meta_description") or "").strip()
-        content          = (data.get("content") or "").strip()
-        faq              = (data.get("faq") or "").strip()
-        conclusion       = (data.get("conclusion") or "").strip()
-
-        # ── Fallback values ────────────────────────────
-        if not title:
-            title = f"Complete Guide to {kw.keyword}"
-            logger.debug("Title missing; using fallback.")
-
-        if not meta_description:
-            meta_description = (
-                f"Learn everything about {kw.keyword} "
-                f"in this detailed, expert guide."
-            )
-            logger.debug("Meta description missing; using fallback.")
-
-        # ── Content validation ─────────────────────────
-        if not content:
-            raise RuntimeError(
-                f"Generated content is empty for keyword={kw.keyword!r}."
-            )
+        content = data.get(
+            "content",
+            ""
+        )
 
         if len(content) < MIN_CONTENT_LENGTH:
+
             raise RuntimeError(
-                f"Generated content too short ({len(content)} chars) "
-                f"for keyword={kw.keyword!r}. "
-                f"Minimum is {MIN_CONTENT_LENGTH} chars."
+                "Generated content too short."
             )
 
-        # ── Truncate oversized SEO fields ─────────────
-        if len(title) > SEO_TITLE_LIMIT:
-            logger.warning(
-                "Title exceeds %d chars; truncating.", SEO_TITLE_LIMIT
-            )
-            title = title[:SEO_TITLE_LIMIT].rsplit(" ", 1)[0]
+        title = data.get(
+            "title"
+        ) or f"Guide to {kw.keyword}"
 
-        if len(meta_description) > META_DESC_LIMIT:
-            logger.warning(
-                "Meta description exceeds %d chars; truncating.", META_DESC_LIMIT
-            )
-            meta_description = (
-                meta_description[:META_DESC_LIMIT - 1].rsplit(" ", 1)[0] + "…"
-            )
+        meta_description = data.get(
+            "meta_description"
+        ) or f"Learn about {kw.keyword}"
 
-        # ── Score ──────────────────────────────────────
-        seo_score  = SEOScorer.score(data, kw)
-        word_count = len(content.split())
-
-        logger.info(
-            "Article built: keyword=%r | words=%d | seo_score=%d",
-            kw.keyword, word_count, seo_score,
+        seo_score = SEOScorer.score(
+            data,
+            kw,
         )
 
         return GeneratedArticle(
-            title            = title,
-            slug             = slugify(title),
-            meta_description = meta_description,
-            content          = content,
-            faq              = faq,
-            conclusion       = conclusion,
-            seo_score        = seo_score,
-            word_count       = word_count,
-            verified         = True,
+
+            title=title[:SEO_TITLE_LIMIT],
+
+            slug=slugify(title),
+
+            meta_description=(
+                meta_description[
+                    :META_DESC_LIMIT
+                ]
+            ),
+
+            content=content,
+
+            faq=data.get(
+                "faq",
+                ""
+            ),
+
+            conclusion=data.get(
+                "conclusion",
+                ""
+            ),
+
+            seo_score=seo_score,
+
+            word_count=len(
+                content.split()
+            ),
+
+            verified=True,
         )

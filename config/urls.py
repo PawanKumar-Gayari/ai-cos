@@ -2,10 +2,23 @@
 Main URL configuration for ai_cos project.
 """
 
+from __future__ import annotations
+
 from django.conf import settings
+
 from django.conf.urls.static import static
 
 from django.contrib import admin
+
+from django.contrib.admin.views.decorators import (
+    staff_member_required,
+)
+
+from django.contrib.auth import views as auth_views
+
+from django.contrib.auth.decorators import (
+    login_required,
+)
 
 from django.http import JsonResponse
 
@@ -16,125 +29,63 @@ from django.urls import (
 
 from drf_spectacular.views import (
     SpectacularAPIView,
-    SpectacularSwaggerView,
     SpectacularRedocView,
+    SpectacularSwaggerView,
 )
 
-
-# ==================================================
+# =========================================================
 # SAFE IMPORTS
-# ==================================================
+# =========================================================
 
 from apps.core.model_manager import (
-    ModelManager
+    ModelManager,
 )
 
 from apps.llm.router import (
-    LLMRouter
+    LLMRouter,
 )
 
 from apps.memory.embeddings.embedding_service import (
-    EmbeddingService
+    EmbeddingService,
 )
 
-
-# ==================================================
+# =========================================================
 # APP METADATA
-# ==================================================
+# =========================================================
 
 API_VERSION = "v1"
 
 SYSTEM_NAME = "AI COS API"
 
+# =========================================================
+# SYSTEM STATUS
+# =========================================================
 
-# ==================================================
-# HOME ENDPOINT
-# ==================================================
 
-def home(
-    request
-):
+@login_required(
+    login_url="/login/"
+)
+def system_status(request):
 
     """
-    Root system health endpoint.
+    Enterprise runtime status.
     """
 
-    try:
-
-        router = (
-            LLMRouter()
-        )
-
-        embedding_service = (
-            EmbeddingService()
-        )
-
-        return JsonResponse({
-
-            "success": True,
-
-            "message": (
-                f"{SYSTEM_NAME} Running"
-            ),
-
-            "version": API_VERSION,
-
-            "environment": (
-
-                "development"
-
-                if settings.DEBUG
-
-                else "production"
-            ),
-
-            "ai_system": {
-
-                "router": (
-                    router.router_status()
-                ),
-
-                "embedding": (
-                    embedding_service.health_check()
-                ),
-
-                "runtime": (
-                    ModelManager.system_status()
-                ),
-            },
-        })
-
-    except Exception as error:
+    if not request.user.is_staff:
 
         return JsonResponse({
 
             "success": False,
 
             "message": (
-                "System initialization failed."
+                "Access denied."
             ),
 
-            "error": str(error),
-        }, status=500)
-
-
-# ==================================================
-# SYSTEM STATUS
-# ==================================================
-
-def system_status(
-    request
-):
-
-    """
-    Enterprise runtime status.
-    """
+        }, status=403)
 
     try:
 
-        router = (
-            LLMRouter()
-        )
+        router = LLMRouter()
 
         embedding_service = (
             EmbeddingService()
@@ -170,47 +121,150 @@ def system_status(
             "system": "error",
 
             "error": str(error),
+
         }, status=500)
 
 
-# ==================================================
+# =========================================================
 # URL PATTERNS
-# ==================================================
+# =========================================================
 
 urlpatterns = [
 
-    # ==============================================
-    # ROOT
-    # ==============================================
+    # =====================================================
+    # FRONTEND
+    # =====================================================
 
     path(
         "",
-        home,
-        name="home",
+        include(
+            "apps.frontend.urls"
+        ),
     ),
 
-    # ==============================================
-    # SYSTEM STATUS
-    # ==============================================
+    # =====================================================
+    # AUTH
+    # =====================================================
 
     path(
+
+        "login/",
+
+        auth_views.LoginView.as_view(
+
+            template_name=(
+                "auth/login.html"
+            )
+        ),
+
+        name="login",
+    ),
+
+    path(
+
+        "logout/",
+
+        auth_views.LogoutView.as_view(),
+
+        name="logout",
+    ),
+
+    # =====================================================
+    # PASSWORD RESET
+    # =====================================================
+
+    path(
+
+        "password-reset/",
+
+        auth_views.PasswordResetView.as_view(
+
+            template_name=(
+                "auth/password_reset.html"
+            )
+        ),
+
+        name="password_reset",
+    ),
+
+    path(
+
+        "password-reset/done/",
+
+        auth_views.PasswordResetDoneView.as_view(
+
+            template_name=(
+                "auth/password_reset_done.html"
+            )
+        ),
+
+        name="password_reset_done",
+    ),
+
+    path(
+
+        "reset/<uidb64>/<token>/",
+
+        auth_views.PasswordResetConfirmView.as_view(
+
+            template_name=(
+                "auth/password_reset_confirm.html"
+            )
+        ),
+
+        name="password_reset_confirm",
+    ),
+
+    path(
+
+        "reset/done/",
+
+        auth_views.PasswordResetCompleteView.as_view(
+
+            template_name=(
+                "auth/password_reset_complete.html"
+            )
+        ),
+
+        name="password_reset_complete",
+    ),
+
+    # =====================================================
+    # SYSTEM STATUS
+    # =====================================================
+
+    path(
+
         "system/status/",
+
         system_status,
+
         name="system-status",
     ),
 
-    # ==============================================
+    # =====================================================
     # ADMIN
-    # ==============================================
+    # =====================================================
 
     path(
         "admin/",
         admin.site.urls,
     ),
 
-    # ==============================================
+    # =====================================================
+    # DASHBOARD
+    # =====================================================
+
+    path(
+        "dashboard/",
+        include(
+            "apps.dashboard.urls"
+        ),
+    ),
+
+    # =====================================================
     # API V1
-    # ==============================================
+    # =====================================================
 
     path(
         "api/v1/",
@@ -219,20 +273,53 @@ urlpatterns = [
         ),
     ),
 
-    # ==============================================
+    # =====================================================
+    # KEYWORDS API
+    # =====================================================
+
+    path(
+        "api/keywords/",
+        include(
+            "apps.keywords.urls"
+        ),
+    ),
+
+    # =====================================================
     # GENERATOR API
-    # ==============================================
+    # =====================================================
 
     path(
         "api/v1/generator/",
         include(
-            "apps.api.v1.generator.urls"
+            "apps.generator.urls"
         ),
     ),
 
-    # ==============================================
+    # =====================================================
+    # PUBLISHER API
+    # =====================================================
+
+    path(
+        "api/publisher/",
+        include(
+            "apps.publisher.urls"
+        ),
+    ),
+
+    # =====================================================
+    # DECISION ENGINE API
+    # =====================================================
+
+    path(
+        "api/decision/",
+        include(
+            "apps.decision_engine.api.urls"
+        ),
+    ),
+
+    # =====================================================
     # MONITORING API
-    # ==============================================
+    # =====================================================
 
     path(
         "api/monitoring/",
@@ -241,21 +328,26 @@ urlpatterns = [
         ),
     ),
 
-    # ==============================================
+    # =====================================================
     # OPENAPI SCHEMA
-    # ==============================================
+    # =====================================================
 
     path(
+
         "api/schema/",
-        SpectacularAPIView.as_view(),
+
+        staff_member_required(
+
+            SpectacularAPIView.as_view()
+        ),
+
         name="schema",
     ),
 ]
 
-
-# ==================================================
+# =========================================================
 # OPTIONAL DOCS
-# ==================================================
+# =========================================================
 
 if getattr(
     settings,
@@ -265,41 +357,46 @@ if getattr(
 
     urlpatterns += [
 
-        # ==========================================
-        # SWAGGER
-        # ==========================================
+        # =================================================
+        # SWAGGER UI
+        # =================================================
 
         path(
 
             "api/docs/",
 
-            SpectacularSwaggerView.as_view(
-                url_name="schema"
+            staff_member_required(
+
+                SpectacularSwaggerView.as_view(
+                    url_name="schema"
+                )
             ),
 
             name="swagger-ui",
         ),
 
-        # ==========================================
+        # =================================================
         # REDOC
-        # ==========================================
+        # =================================================
 
         path(
 
             "api/redoc/",
 
-            SpectacularRedocView.as_view(
-                url_name="schema"
+            staff_member_required(
+
+                SpectacularRedocView.as_view(
+                    url_name="schema"
+                )
             ),
 
             name="redoc",
         ),
     ]
 
-
-# ==================================================
+# =========================================================
 # STATIC / MEDIA
-# ==================================================
+# =========================================================
 
 if settings.DEBUG:
 

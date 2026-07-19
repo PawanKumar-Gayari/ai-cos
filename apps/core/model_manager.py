@@ -1,16 +1,48 @@
 """
-Global enterprise AI model manager.
+Enterprise AI Model Manager
+---------------------------
+
+Production-grade global AI runtime manager.
+
+Final Optimizations:
+- singleton embedding model
+- thread-safe loading
+- offline HuggingFace runtime
+- low-memory architecture
+- cached health validation
+- zero-inference health checks
+- OCI optimized deployment
+- reduced startup latency
+- lower CPU spikes
+- production-safe runtime
 """
 
+from __future__ import annotations
+
 import logging
+import os
 import threading
+import time
+
+from django.core.cache import cache
 
 from sentence_transformers import (
-    SentenceTransformer
+    SentenceTransformer,
 )
 
-from apps.llm.ollama_provider import (
-    OllamaProvider
+
+# =========================================================
+# OFFLINE HF OPTIMIZATION
+# =========================================================
+
+os.environ.setdefault(
+    "HF_HUB_OFFLINE",
+    "1",
+)
+
+os.environ.setdefault(
+    "TRANSFORMERS_OFFLINE",
+    "1",
 )
 
 
@@ -19,48 +51,44 @@ logger = logging.getLogger(
 )
 
 
+# =========================================================
+# MODEL MANAGER
+# =========================================================
+
 class ModelManager:
 
+    """
+    Enterprise singleton AI model manager.
+    """
+
     EMBEDDING_MODEL_NAME = (
-        "all-MiniLM-L6-v2"
+        "sentence-transformers/all-MiniLM-L6-v2"
     )
 
-    OLLAMA_MODEL_NAME = (
-        "tinyllama"
-    )
-
-    # ==========================================
-    # SHARED INSTANCES
-    # ==========================================
+    HEALTH_CACHE_TIMEOUT = 3600
 
     _embedding_model = None
-
-    _ollama_provider = None
-
-    # ==========================================
-    # THREAD LOCKS
-    # ==========================================
 
     _embedding_lock = (
         threading.Lock()
     )
 
-    _ollama_lock = (
-        threading.Lock()
-    )
-
-    # ==================================================
+    # =====================================================
     # EMBEDDING MODEL
-    # ==================================================
+    # =====================================================
 
     @classmethod
     def embedding_model(
-        cls
+        cls,
     ):
 
         """
         Shared singleton embedding model.
         """
+
+        # =============================================
+        # REUSE EXISTING MODEL
+        # =============================================
 
         if (
             cls._embedding_model
@@ -71,12 +99,18 @@ class ModelManager:
                 cls._embedding_model
             )
 
+        # =============================================
+        # THREAD SAFE LOAD
+        # =============================================
+
         with cls._embedding_lock:
 
             if (
                 cls._embedding_model
                 is None
             ):
+
+                started = time.time()
 
                 logger.info(
 
@@ -87,90 +121,70 @@ class ModelManager:
                 cls._embedding_model = (
                     SentenceTransformer(
 
-                        cls.EMBEDDING_MODEL_NAME
+                        cls.EMBEDDING_MODEL_NAME,
+
+                        device="cpu",
+
+                        local_files_only=True,
                     )
                 )
 
+                duration = round(
+
+                    time.time()
+                    - started,
+
+                    2,
+                )
+
                 logger.info(
-                    "Embedding model loaded."
+
+                    f"Embedding model loaded "
+                    f"in {duration}s"
                 )
 
         return (
             cls._embedding_model
         )
 
-    # ==================================================
-    # OLLAMA PROVIDER
-    # ==================================================
-
-    @classmethod
-    def ollama_provider(
-        cls
-    ):
-
-        """
-        Shared singleton Ollama provider.
-        """
-
-        if (
-            cls._ollama_provider
-            is not None
-        ):
-
-            return (
-                cls._ollama_provider
-            )
-
-        with cls._ollama_lock:
-
-            if (
-                cls._ollama_provider
-                is None
-            ):
-
-                logger.info(
-
-                    f"Loading Ollama provider: "
-                    f"{cls.OLLAMA_MODEL_NAME}"
-                )
-
-                cls._ollama_provider = (
-                    OllamaProvider(
-
-                        model=(
-                            cls.OLLAMA_MODEL_NAME
-                        )
-                    )
-                )
-
-                logger.info(
-                    "Ollama provider loaded."
-                )
-
-        return (
-            cls._ollama_provider
-        )
-
-    # ==================================================
+    # =====================================================
     # WARMUP
-    # ==================================================
+    # =====================================================
 
     @classmethod
     def warmup(
-        cls
+        cls,
     ):
 
         """
-        Preload core AI models.
+        Preload AI runtime.
         """
 
+        if (
+            cls._embedding_model
+            is not None
+        ):
+
+            logger.info(
+                "Embedding model already warmed."
+            )
+
+            return {
+
+                "status":
+                "already_warmed",
+
+                "embedding_model":
+                cls.EMBEDDING_MODEL_NAME,
+            }
+
         logger.info(
-            "Starting model warmup."
+            "Starting AI warmup."
         )
 
-        embedding_loaded = False
+        started = time.time()
 
-        ollama_loaded = False
+        embedding_loaded = False
 
         try:
 
@@ -186,84 +200,93 @@ class ModelManager:
                 f"{str(error)}"
             )
 
-        try:
+        duration = round(
 
-            cls.ollama_provider()
+            time.time()
+            - started,
 
-            ollama_loaded = True
-
-        except Exception as error:
-
-            logger.exception(
-
-                f"Ollama warmup failed: "
-                f"{str(error)}"
-            )
+            2,
+        )
 
         logger.info(
-            "Model warmup completed."
+
+            f"AI warmup completed "
+            f"in {duration}s"
         )
 
         return {
 
             "status": "ready",
 
-            "embedding_loaded": (
-                embedding_loaded
-            ),
+            "embedding_loaded":
+            embedding_loaded,
 
-            "ollama_loaded": (
-                ollama_loaded
-            ),
+            "embedding_model":
+            cls.EMBEDDING_MODEL_NAME,
 
-            "embedding_model": (
-                cls.EMBEDDING_MODEL_NAME
-            ),
-
-            "ollama_model": (
-                cls.OLLAMA_MODEL_NAME
-            ),
+            "warmup_time":
+            duration,
         }
 
-    # ==================================================
+    # =====================================================
     # EMBEDDING HEALTH
-    # ==================================================
+    # =====================================================
 
     @classmethod
     def embedding_health(
-        cls
+        cls,
     ):
 
         """
-        Validate embedding runtime.
+        Lightweight runtime validation.
         """
 
         try:
 
-            model = (
-                cls.embedding_model()
+            cache_key = (
+                "embedding_health_status"
             )
 
-            vector = (
-                model.encode(
-                    "health check"
-                )
+            cached = cache.get(
+                cache_key
             )
 
-            return {
+            if cached:
 
-                "healthy": (
-                    vector is not None
-                ),
+                return cached
 
-                "vector_size": (
-                    len(vector)
-                ),
+            # =========================================
+            # VALIDATE MODEL LOAD ONLY
+            # =========================================
 
-                "model": (
-                    cls.EMBEDDING_MODEL_NAME
+            cls.embedding_model()
+
+            result = {
+
+                "healthy": True,
+
+                "model":
+                cls.EMBEDDING_MODEL_NAME,
+
+                "loaded":
+                (
+                    cls._embedding_model
+                    is not None
                 ),
             }
+
+            cache.set(
+
+                cache_key,
+
+                result,
+
+                timeout=(
+                    cls.HEALTH_CACHE_TIMEOUT
+                ),
+            )
+
+            return result
 
         except Exception as error:
 
@@ -280,62 +303,17 @@ class ModelManager:
                 "error": str(error),
             }
 
-    # ==================================================
-    # OLLAMA HEALTH
-    # ==================================================
-
-    @classmethod
-    def ollama_health(
-        cls
-    ):
-
-        """
-        Validate Ollama runtime.
-        """
-
-        try:
-
-            provider = (
-                cls.ollama_provider()
-            )
-
-            return {
-
-                "healthy": (
-                    provider.health_check()
-                ),
-
-                "model": (
-                    cls.OLLAMA_MODEL_NAME
-                ),
-            }
-
-        except Exception as error:
-
-            logger.exception(
-
-                f"Ollama health failed: "
-                f"{str(error)}"
-            )
-
-            return {
-
-                "healthy": False,
-
-                "error": str(error),
-            }
-
-    # ==================================================
+    # =====================================================
     # SYSTEM STATUS
-    # ==================================================
+    # =====================================================
 
     @classmethod
     def system_status(
-        cls
+        cls,
     ):
 
         """
-        Return runtime model status.
+        Global AI runtime status.
         """
 
         return {
@@ -346,40 +324,24 @@ class ModelManager:
                 is not None
             ),
 
-            "ollama_loaded": (
+            "embedding_model":
+            cls.EMBEDDING_MODEL_NAME,
 
-                cls._ollama_provider
-                is not None
-            ),
-
-            "embedding_model": (
-                cls.EMBEDDING_MODEL_NAME
-            ),
-
-            "ollama_model": (
-                cls.OLLAMA_MODEL_NAME
-            ),
-
-            "embedding_health": (
-                cls.embedding_health()
-            ),
-
-            "ollama_health": (
-                cls.ollama_health()
-            ),
+            "embedding_health":
+            cls.embedding_health(),
         }
 
-    # ==================================================
-    # UNLOAD MODELS
-    # ==================================================
+    # =====================================================
+    # UNLOAD
+    # =====================================================
 
     @classmethod
     def unload_models(
-        cls
+        cls,
     ):
 
         """
-        Release shared models.
+        Release shared runtime.
         """
 
         logger.warning(
@@ -388,7 +350,9 @@ class ModelManager:
 
         cls._embedding_model = None
 
-        cls._ollama_provider = None
+        cache.delete(
+            "embedding_health_status"
+        )
 
         return {
 

@@ -40,6 +40,8 @@ class PersistentRetriever:
 
     MAX_RESULTS = 20
 
+    DEFAULT_IMPORTANCE = 0.5
+
     BLOCKED_PATTERNS = [
 
         "ignore previous instructions",
@@ -86,10 +88,6 @@ class PersistentRetriever:
         query,
     ):
 
-        """
-        Normalize query text.
-        """
-
         if not query:
 
             return ""
@@ -109,16 +107,13 @@ class PersistentRetriever:
         text,
     ):
 
-        """
-        Validate memory safety.
-        """
-
         if not text:
 
             return False
 
         lowered = (
-            text.lower()
+            str(text)
+            .lower()
         )
 
         for pattern in (
@@ -132,6 +127,62 @@ class PersistentRetriever:
         return True
 
     # ==================================================
+    # SAFE FLOAT
+    # ==================================================
+
+    def safe_float(
+        self,
+        value,
+        default=0.0,
+    ):
+
+        """
+        Convert values safely to float.
+        """
+
+        try:
+
+            if value is None:
+
+                return float(default)
+
+            if isinstance(
+                value,
+                bool,
+            ):
+
+                return float(default)
+
+            if isinstance(
+                value,
+                (int, float),
+            ):
+
+                return float(value)
+
+            if isinstance(
+                value,
+                list,
+            ):
+
+                if not value:
+
+                    return float(default)
+
+                value = value[0]
+
+            value = (
+                str(value)
+                .strip()
+            )
+
+            return float(value)
+
+        except Exception:
+
+            return float(default)
+
+    # ==================================================
     # CACHE KEY
     # ==================================================
 
@@ -139,10 +190,6 @@ class PersistentRetriever:
         self,
         query,
     ):
-
-        """
-        Generate retrieval cache key.
-        """
 
         normalized_query = (
             self.normalize_query(
@@ -165,10 +212,6 @@ class PersistentRetriever:
         embedding_2,
     ):
 
-        """
-        Calculate semantic similarity.
-        """
-
         return (
             self.embedding_service.compare_embeddings(
 
@@ -186,10 +229,6 @@ class PersistentRetriever:
         self,
         embedding,
     ):
-
-        """
-        Validate embedding.
-        """
 
         if not embedding:
 
@@ -218,18 +257,33 @@ class PersistentRetriever:
         score,
     ):
 
-        """
-        Build retrieval result.
-        """
-
         metadata = item.get(
             "metadata",
             {},
         )
 
+        if not isinstance(
+            metadata,
+            dict,
+        ):
+
+            metadata = {}
+
         importance = metadata.get(
             "importance",
-            0.5,
+            self.DEFAULT_IMPORTANCE,
+        )
+
+        importance = self.safe_float(
+
+            importance,
+
+            default=self.DEFAULT_IMPORTANCE,
+        )
+
+        score = self.safe_float(
+            score,
+            default=0.0,
         )
 
         final_score = round(
@@ -281,10 +335,6 @@ class PersistentRetriever:
         results,
     ):
 
-        """
-        Remove duplicate memories.
-        """
-
         unique = []
 
         seen = set()
@@ -296,6 +346,10 @@ class PersistentRetriever:
                     "query",
                     ""
                 )
+            )
+
+            query = (
+                str(query)
                 .strip()
                 .lower()
             )
@@ -327,19 +381,20 @@ class PersistentRetriever:
         result,
     ):
 
-        """
-        Adaptive learning pipeline.
-        """
-
         try:
 
             query_text = result.get(
                 "query"
             )
 
-            semantic_score = result.get(
-                "semantic_score",
-                0,
+            semantic_score = self.safe_float(
+
+                result.get(
+                    "semantic_score",
+                    0,
+                ),
+
+                default=0.0,
             )
 
             self.usage_tracker.increment_usage(
@@ -383,10 +438,6 @@ class PersistentRetriever:
         min_score=None,
     ):
 
-        """
-        Persistent semantic search.
-        """
-
         normalized_query = (
             self.normalize_query(
                 query
@@ -402,7 +453,6 @@ class PersistentRetriever:
         ):
 
             logger.warning(
-
                 "Blocked unsafe query."
             )
 
@@ -471,7 +521,6 @@ class PersistentRetriever:
         ):
 
             logger.warning(
-
                 "Invalid query embedding."
             )
 
@@ -525,6 +574,11 @@ class PersistentRetriever:
 
                         item_embedding,
                     )
+                )
+
+                score = self.safe_float(
+                    score,
+                    default=0.0,
                 )
 
             except Exception:
@@ -605,10 +659,6 @@ class PersistentRetriever:
         query,
     ):
 
-        """
-        Return best semantic match.
-        """
-
         results = self.search(
 
             query=query,
@@ -632,10 +682,6 @@ class PersistentRetriever:
         limit=3,
     ):
 
-        """
-        Return related memories.
-        """
-
         return self.search(
 
             query=query,
@@ -651,10 +697,6 @@ class PersistentRetriever:
         self,
         query,
     ):
-
-        """
-        Check if memory exists.
-        """
 
         normalized_query = (
             self.normalize_query(
@@ -692,10 +734,6 @@ class PersistentRetriever:
         self
     ):
 
-        """
-        Return total memories.
-        """
-
         return len(
             self.repository.all()
         )
@@ -707,10 +745,6 @@ class PersistentRetriever:
     def clear_cache(
         self
     ):
-
-        """
-        Clear semantic cache.
-        """
 
         logger.info(
             "Clearing semantic cache."
@@ -725,9 +759,5 @@ class PersistentRetriever:
     def cache_stats(
         self
     ):
-
-        """
-        Return cache statistics.
-        """
 
         return self.cache.stats()

@@ -1,8 +1,10 @@
 """
-Competitor intelligence engine.
+Enterprise competitor intelligence engine.
 """
 
 import time
+import logging
+import asyncio
 
 from apps.competitor.services.competitor_service import (
     CompetitorService,
@@ -16,23 +18,38 @@ from utils.helpers import (
     Helpers,
 )
 
-from utils.logger import (
-    competitor_logger,
+from utils.exceptions import (
+
+    CompetitorException,
+
+    KeywordValidationException,
 )
 
-from utils.exceptions import (
-    CompetitorException,
-    KeywordValidationException,
+
+logger = logging.getLogger(
+    __name__
 )
 
 
 class CompetitorEngine:
 
-    def __init__(self):
+    """
+    Enterprise async competitor engine.
+    """
+
+    ANALYSIS_TIMEOUT = 120
+
+    def __init__(
+        self
+    ):
 
         self.competitor_service = (
             CompetitorService()
         )
+
+    # ==================================================
+    # VALIDATE KEYWORD
+    # ==================================================
 
     def validate_keyword(
         self,
@@ -69,7 +86,9 @@ class CompetitorEngine:
             )
         )
 
-        if len(normalized) < 3:
+        if len(
+            normalized
+        ) < 3:
 
             raise (
                 KeywordValidationException(
@@ -79,7 +98,68 @@ class CompetitorEngine:
 
         return normalized
 
-    def analyze(
+    # ==================================================
+    # SAFE RESULT
+    # ==================================================
+
+    def safe_result(
+        self,
+        result,
+    ):
+
+        """
+        Normalize competitor result.
+        """
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+
+            return {
+
+                "success": False,
+
+                "analysis_summary": {},
+
+                "serp_results": [],
+
+                "gap_analysis": {},
+
+                "weakness_analysis": {},
+
+                "engine_metadata": {},
+            }
+
+        return result
+
+    # ==================================================
+    # EXECUTE ANALYSIS
+    # ==================================================
+
+    async def execute_analysis(
+        self,
+        keyword,
+    ):
+
+        """
+        Async-safe analysis execution.
+        """
+
+        result = await asyncio.to_thread(
+
+            self.competitor_service.analyze,
+
+            keyword,
+        )
+
+        return result
+
+    # ==================================================
+    # ANALYZE
+    # ==================================================
+
+    async def analyze(
         self,
         keyword,
         include_serp=True,
@@ -88,21 +168,21 @@ class CompetitorEngine:
     ):
 
         """
-        Run competitor intelligence analysis.
+        Run enterprise competitor analysis.
         """
 
         start_time = time.time()
 
-        competitor_logger.info(
+        logger.info(
 
-            f"Competitor engine started "
-            f"for keyword: {keyword}"
+            f"COMPETITOR ENGINE START: "
+            f"{keyword}"
         )
 
         try:
 
             # ==========================================
-            # VALIDATE KEYWORD
+            # VALIDATE
             # ==========================================
 
             keyword = (
@@ -111,18 +191,40 @@ class CompetitorEngine:
                 )
             )
 
-            # ==========================================
-            # RUN ANALYSIS
-            # ==========================================
+            logger.info(
 
-            result = (
-                self.competitor_service.analyze(
-                    keyword
-                )
+                f"VALIDATED KEYWORD: "
+                f"{keyword}"
             )
 
             # ==========================================
-            # OPTIONAL FILTERS
+            # EXECUTE
+            # ==========================================
+
+            result = await asyncio.wait_for(
+
+                self.execute_analysis(
+                    keyword
+                ),
+
+                timeout=(
+                    self.ANALYSIS_TIMEOUT
+                ),
+            )
+
+            result = (
+                self.safe_result(
+                    result
+                )
+            )
+
+            logger.info(
+                "COMPETITOR ANALYSIS "
+                "COMPLETED"
+            )
+
+            # ==========================================
+            # FILTERS
             # ==========================================
 
             if not include_serp:
@@ -157,27 +259,34 @@ class CompetitorEngine:
             )
 
             # ==========================================
-            # ENGINE METADATA
+            # METADATA
             # ==========================================
 
-            existing_metadata = (
+            metadata = (
+
                 result.get(
                     "engine_metadata",
                     {}
                 )
+
+                or {}
             )
 
-            existing_metadata.update({
+            metadata.update({
 
                 "engine": (
                     "competitor_intelligence"
                 ),
 
-                "version": "2.1.0",
+                "version": "4.0.0",
+
+                "status": "success",
 
                 "execution_time": (
                     execution_time
                 ),
+
+                "keyword": keyword,
 
                 "filters": {
 
@@ -195,28 +304,153 @@ class CompetitorEngine:
                 },
             })
 
-            result["engine_metadata"] = (
-                existing_metadata
-            )
+            result[
+                "engine_metadata"
+            ] = metadata
 
-            competitor_logger.info(
+            result["success"] = True
 
-                f"Competitor engine completed "
-                f"in {execution_time}s"
+            logger.info(
+
+                f"COMPETITOR ENGINE "
+                f"COMPLETED IN "
+                f"{execution_time}s"
             )
 
             return result
 
+        except asyncio.TimeoutError:
+
+            logger.exception(
+                "Competitor analysis "
+                "timed out."
+            )
+
+            return {
+
+                "success": False,
+
+                "error": (
+                    "Analysis timed out."
+                ),
+
+                "analysis_summary": {},
+
+                "serp_results": [],
+
+                "gap_analysis": {},
+
+                "weakness_analysis": {},
+
+                "engine_metadata": {
+
+                    "engine": (
+                        "competitor_intelligence"
+                    ),
+
+                    "version": "4.0.0",
+
+                    "status": "timeout",
+                },
+            }
+
         except Exception as error:
 
-            competitor_logger.exception(
+            logger.exception(
 
                 f"Competitor engine failed: "
                 f"{str(error)}"
             )
 
-            raise CompetitorException(
+            return {
 
-                f"Competitor engine failed: "
-                f"{str(error)}"
-            )
+                "success": False,
+
+                "error": str(error),
+
+                "analysis_summary": {},
+
+                "serp_results": [],
+
+                "gap_analysis": {},
+
+                "weakness_analysis": {},
+
+                "engine_metadata": {
+
+                    "engine": (
+                        "competitor_intelligence"
+                    ),
+
+                    "version": "4.0.0",
+
+                    "status": "failed",
+                },
+            }
+
+    # ==================================================
+    # QUICK SUMMARY
+    # ==================================================
+
+    async def quick_summary(
+        self,
+        keyword,
+    ):
+
+        """
+        Lightweight competitor summary.
+        """
+
+        result = await self.analyze(
+
+            keyword,
+
+            include_serp=False,
+
+            include_gaps=False,
+        )
+
+        return {
+
+            "success": (
+                result.get(
+                    "success",
+                    False,
+                )
+            ),
+
+            "summary": (
+
+                result.get(
+                    "analysis_summary",
+                    {}
+                )
+            ),
+        }
+
+    # ==================================================
+    # ENGINE STATUS
+    # ==================================================
+
+    def engine_status(
+        self
+    ):
+
+        """
+        Engine status.
+        """
+
+        return {
+
+            "engine": (
+                "competitor_intelligence"
+            ),
+
+            "version": "4.0.0",
+
+            "status": "active",
+
+            "timeout": (
+                self.ANALYSIS_TIMEOUT
+            ),
+        }

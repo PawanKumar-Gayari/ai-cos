@@ -1,0 +1,184 @@
+decision_engine/
+│
+├── admin.py
+├── apps.py
+├── constants.py
+├── decision.py
+├── exceptions.py
+├── models.py
+├── __init__.py
+│
+├── api/
+│   ├── analytics_views.py
+│   ├── decision_views.py
+│   ├── serializers.py
+│   └── urls.py
+│
+├── contracts/
+│   ├── decision_context.py
+│   ├── decision_result.py
+│   ├── scoring_result.py
+│   ├── verification_result.py
+│   ├── prediction_result.py
+│   └── strategy_result.py
+│
+├── context/
+│   ├── topic_context.py
+│   ├── serp_context.py
+│   ├── intent_context.py
+│   ├── freshness_context.py
+│   ├── authority_context.py
+│   ├── competition_context.py
+│   └── context_builder.py
+│
+├── intelligence/
+│   ├── ranking_predictor.py
+│   ├── traffic_estimator.py
+│   ├── opportunity_estimator.py
+│   ├── freshness_evaluator.py
+│   ├── authority_analyzer.py
+│   ├── content_risk_analyzer.py
+│   └── confidence_engine.py
+│
+├── reasoning/
+│   ├── seo_agent.py
+│   ├── freshness_agent.py
+│   ├── authority_agent.py
+│   ├── quality_agent.py
+│   ├── risk_agent.py
+│   ├── strategy_agent.py
+│   └── consensus_engine.py
+│
+├── verification/
+│   ├── freshness/
+│   │   ├── freshness_detector.py
+│   │   ├── stale_content_detector.py
+│   │   ├── recency_score.py
+│   │   └── update_priority.py
+│   │
+│   ├── sources/
+│   │   ├── official_source_detector.py
+│   │   ├── source_ranker.py
+│   │   ├── authority_score.py
+│   │   ├── domain_trust.py
+│   │   └── citation_extractor.py
+│   │
+│   ├── claims/
+│   │   ├── claim_extractor.py
+│   │   ├── fact_matcher.py
+│   │   ├── contradiction_detector.py
+│   │   └── verification_score.py
+│   │
+│   ├── realtime/
+│   │   ├── live_verifier.py
+│   │   ├── update_checker.py
+│   │   └── source_monitor.py
+│   │
+│   └── verification_engine.py
+│
+├── strategy/
+│   ├── article_strategy.py
+│   ├── seo_strategy.py
+│   ├── authority_strategy.py
+│   ├── freshness_strategy.py
+│   ├── structure_strategy.py
+│   ├── faq_strategy.py
+│   ├── linking_strategy.py
+│   └── strategy_selector.py
+│
+├── planner/
+│   ├── article_planner.py
+│   ├── publish_planner.py
+│   ├── update_planner.py
+│   ├── cluster_planner.py
+│   ├── authority_planner.py
+│   ├── internal_link_planner.py
+│   └── scoring/
+│
+├── adaptive/
+│   ├── adaptive_rules.py
+│   ├── adaptive_weights.py
+│   ├── niche_profiles.py
+│   ├── performance_learning.py
+│   └── rule_optimizer.py
+│
+├── feedback/
+│   ├── ranking_feedback.py
+│   ├── ctr_feedback.py
+│   ├── engagement_feedback.py
+│   ├── update_feedback.py
+│   ├── strategy_feedback.py
+│   └── learning_engine.py
+│
+├── scoring/
+│   ├── keyword_score.py
+│   ├── seo_score.py
+│   ├── quality_score.py
+│   ├── publish_score.py
+│   ├── competition_score.py
+│   ├── authority_score.py
+│   ├── freshness_score.py
+│   ├── trust_score.py
+│   ├── confidence_score.py
+│   └── scoring_orchestrator.py
+│
+├── rules/
+│   ├── quality_rules.py
+│   ├── seo_rules.py
+│   ├── rewrite_rules.py
+│   ├── publish_rules.py
+│   ├── freshness_rules.py
+│   ├── authority_rules.py
+│   └── verification_rules.py
+│
+├── orchestration/
+│   ├── workflow_engine.py
+│   ├── execution_graph.py
+│   ├── retry_manager.py
+│   ├── decision_router.py
+│   └── event_dispatcher.py
+│
+├── simulation/
+│   ├── ranking_simulator.py
+│   ├── traffic_simulator.py
+│   ├── seo_impact_simulator.py
+│   └── publish_timing_simulator.py
+│
+├── services/
+│   ├── decision_service.py
+│   ├── planning_service.py
+│   ├── scoring_service.py
+│   ├── rule_engine_service.py
+│   ├── verification_decision_service.py
+│   ├── strategy_service.py
+│   ├── freshness_service.py
+│   ├── authority_service.py
+│   └── intelligence_service.py
+│
+├── events/
+│   ├── article_verified.py
+│   ├── article_published.py
+│   ├── freshness_expired.py
+│   ├── ranking_changed.py
+│   └── feedback_received.py
+│
+├── memory/
+│   ├── decision_memory.py
+│   ├── strategy_memory.py
+│   ├── verified_facts_memory.py
+│   └── performance_memory.py
+│
+├── monitoring/
+│   ├── decision_metrics.py
+│   ├── reasoning_logs.py
+│   ├── confidence_logs.py
+│   └── freshness_monitor.py
+│
+├── tests/
+│   ├── test_decision_engine.py
+│   ├── test_reasoning.py
+│   ├── test_verification.py
+│   ├── test_prediction.py
+│   └── test_adaptive_learning.py
+│
+└── migrations/

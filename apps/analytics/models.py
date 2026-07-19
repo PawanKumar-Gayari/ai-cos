@@ -8,6 +8,14 @@ from apps.engine.models import (
     Article,
 )
 
+from apps.generator.models import (
+    GeneratorConfig,
+)
+
+from apps.keywords.models import (
+    KeywordAnalysis,
+)
+
 
 # ==================================================
 # ARTICLE ANALYTICS
@@ -16,6 +24,17 @@ from apps.engine.models import (
 class ArticleAnalytics(
     models.Model
 ):
+
+    QUALITY_CHOICES = [
+
+        ("excellent", "Excellent"),
+
+        ("good", "Good"),
+
+        ("average", "Average"),
+
+        ("poor", "Poor"),
+    ]
 
     # ==============================================
     # RELATIONS
@@ -27,9 +46,37 @@ class ArticleAnalytics(
 
         on_delete=models.CASCADE,
 
-        related_name=(
-            "analytics"
-        ),
+        related_name="analytics",
+    )
+
+    keyword_analysis = (
+        models.ForeignKey(
+
+            KeywordAnalysis,
+
+            on_delete=models.SET_NULL,
+
+            blank=True,
+
+            null=True,
+
+            related_name=(
+                "article_analytics"
+            ),
+        )
+    )
+
+    generator_config = (
+        models.ForeignKey(
+
+            GeneratorConfig,
+
+            on_delete=models.SET_NULL,
+
+            blank=True,
+
+            null=True,
+        )
     )
 
     # ==============================================
@@ -37,6 +84,15 @@ class ArticleAnalytics(
     # ==============================================
 
     provider = models.CharField(
+
+        max_length=100,
+
+        blank=True,
+
+        null=True,
+    )
+
+    model_name = models.CharField(
 
         max_length=100,
 
@@ -57,8 +113,14 @@ class ArticleAnalytics(
         )
     )
 
+    retry_count = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
     # ==============================================
-    # REWRITE METRICS
+    # CONTENT QUALITY
     # ==============================================
 
     rewrite_score = (
@@ -80,6 +142,51 @@ class ArticleAnalytics(
     )
 
     ai_detection_score = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
+    final_quality_score = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
+    quality_status = (
+        models.CharField(
+
+            max_length=50,
+
+            choices=QUALITY_CHOICES,
+
+            default="average",
+        )
+    )
+
+    # ==============================================
+    # SEO
+    # ==============================================
+
+    seo_score = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
+    keyword_density = (
+        models.FloatField(
+            default=0
+        )
+    )
+
+    word_count = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
+    heading_score = (
         models.IntegerField(
             default=0
         )
@@ -108,41 +215,24 @@ class ArticleAnalytics(
     )
 
     # ==============================================
-    # SEO
+    # PERFORMANCE
     # ==============================================
 
-    seo_score = (
+    token_usage = (
         models.IntegerField(
             default=0
         )
     )
 
-    keyword_density = (
+    estimated_cost = (
         models.FloatField(
             default=0
         )
     )
 
-    word_count = (
-        models.IntegerField(
+    response_latency = (
+        models.FloatField(
             default=0
-        )
-    )
-
-    # ==============================================
-    # PUBLISHING
-    # ==============================================
-
-    published = (
-        models.BooleanField(
-            default=False
-        )
-    )
-
-    publish_url = (
-        models.URLField(
-            blank=True,
-            null=True,
         )
     )
 
@@ -163,22 +253,34 @@ class ArticleAnalytics(
         )
     )
 
-    # ==============================================
-    # QUALITY
-    # ==============================================
-
-    final_quality_score = (
-        models.IntegerField(
-            default=0
+    raw_metadata = (
+        models.JSONField(
+            default=dict,
+            blank=True,
         )
     )
 
-    quality_status = (
-        models.CharField(
+    # ==============================================
+    # PUBLISHING
+    # ==============================================
 
-            max_length=50,
+    published = (
+        models.BooleanField(
+            default=False
+        )
+    )
 
-            default="unknown",
+    publish_url = (
+        models.URLField(
+            blank=True,
+            null=True,
+        )
+    )
+
+    published_at = (
+        models.DateTimeField(
+            blank=True,
+            null=True,
         )
     )
 
@@ -199,6 +301,24 @@ class ArticleAnalytics(
     )
 
     # ==================================================
+    # META
+    # ==================================================
+
+    class Meta:
+
+        ordering = [
+            "-created_at"
+        ]
+
+        verbose_name = (
+            "Article Analytics"
+        )
+
+        verbose_name_plural = (
+            "Article Analytics"
+        )
+
+    # ==================================================
     # STRING
     # ==================================================
 
@@ -208,7 +328,7 @@ class ArticleAnalytics(
 
         return (
 
-            f"Analytics: "
+            f"Analytics | "
             f"{self.article.title}"
         )
 
@@ -221,14 +341,37 @@ class ProviderAnalytics(
     models.Model
 ):
 
+    PROVIDER_CHOICES = [
+
+        ("openai", "OpenAI"),
+
+        ("gemini", "Gemini"),
+
+        ("ollama", "Ollama"),
+    ]
+
     # ==============================================
     # PROVIDER
     # ==============================================
 
     provider_name = (
         models.CharField(
-            max_length=100
+
+            max_length=100,
+
+            choices=PROVIDER_CHOICES,
+
+            unique=True,
         )
+    )
+
+    model_name = models.CharField(
+
+        max_length=100,
+
+        blank=True,
+
+        null=True,
     )
 
     # ==============================================
@@ -253,6 +396,12 @@ class ProviderAnalytics(
         )
     )
 
+    total_fallbacks = (
+        models.IntegerField(
+            default=0
+        )
+    )
+
     # ==============================================
     # PERFORMANCE
     # ==============================================
@@ -263,13 +412,15 @@ class ProviderAnalytics(
         )
     )
 
-    # ==============================================
-    # QUALITY
-    # ==============================================
-
     average_quality_score = (
         models.FloatField(
             default=0
+        )
+    )
+
+    uptime_percentage = (
+        models.FloatField(
+            default=100
         )
     )
 
@@ -277,16 +428,30 @@ class ProviderAnalytics(
     # SYSTEM
     # ==============================================
 
-    total_fallbacks = (
-        models.IntegerField(
-            default=0
-        )
-    )
-
     last_error = (
         models.TextField(
             blank=True,
             null=True,
+        )
+    )
+
+    last_success = (
+        models.DateTimeField(
+            blank=True,
+            null=True,
+        )
+    )
+
+    last_failure = (
+        models.DateTimeField(
+            blank=True,
+            null=True,
+        )
+    )
+
+    healthy = (
+        models.BooleanField(
+            default=True
         )
     )
 
@@ -307,6 +472,24 @@ class ProviderAnalytics(
     )
 
     # ==================================================
+    # META
+    # ==================================================
+
+    class Meta:
+
+        ordering = [
+            "provider_name"
+        ]
+
+        verbose_name = (
+            "Provider Analytics"
+        )
+
+        verbose_name_plural = (
+            "Provider Analytics"
+        )
+
+    # ==================================================
     # STRING
     # ==================================================
 
@@ -314,4 +497,8 @@ class ProviderAnalytics(
         self,
     ):
 
-        return self.provider_name
+        return (
+
+            f"{self.provider_name} "
+            f"Analytics"
+        )

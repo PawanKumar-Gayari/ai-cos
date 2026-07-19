@@ -1,5 +1,20 @@
-from django.apps import AppConfig
+from django.apps import (
+    AppConfig
+)
 
 
-class GeneratorConfig(AppConfig):
-    name = 'apps.generator'
+class GeneratorConfig(
+    AppConfig
+):
+
+    default_auto_field = (
+        "django.db.models.BigAutoField"
+    )
+
+    name = (
+        "apps.generator"
+    )
+
+    verbose_name = (
+        "AI Generator"
+    )

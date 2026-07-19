@@ -1,18 +1,53 @@
 from django.db import models
 
 
-class APIRequestLog(models.Model):
+class APIRequestLog(
+    models.Model
+):
+
+    METHOD_CHOICES = [
+
+        ("GET", "GET"),
+
+        ("POST", "POST"),
+
+        ("PUT", "PUT"),
+
+        ("PATCH", "PATCH"),
+
+        ("DELETE", "DELETE"),
+    ]
+
+    # ==========================================
+    # REQUEST INFO
+    # ==========================================
 
     request_id = models.CharField(
+
         max_length=255,
-        unique=True
+
+        unique=True,
     )
 
     method = models.CharField(
-        max_length=20
+
+        max_length=20,
+
+        choices=METHOD_CHOICES,
     )
 
     path = models.TextField()
+
+    query_params = models.TextField(
+
+        blank=True,
+
+        null=True,
+    )
+
+    # ==========================================
+    # RESPONSE
+    # ==========================================
 
     status_code = models.IntegerField()
 
@@ -20,19 +55,55 @@ class APIRequestLog(models.Model):
         default=0
     )
 
+    response_size_kb = models.FloatField(
+        default=0
+    )
+
+    # ==========================================
+    # CLIENT INFO
+    # ==========================================
+
     ip_address = models.CharField(
+
         max_length=255,
+
         blank=True,
-        null=True
+
+        null=True,
     )
 
     user_agent = models.TextField(
+
         blank=True,
-        null=True
+
+        null=True,
     )
+
+    # ==========================================
+    # REQUEST STATUS
+    # ==========================================
+
+    successful = models.BooleanField(
+        default=True
+    )
+
+    error_message = models.TextField(
+
+        blank=True,
+
+        null=True,
+    )
+
+    # ==========================================
+    # TIMESTAMPS
+    # ==========================================
 
     created_at = models.DateTimeField(
         auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
     )
 
     class Meta:
@@ -41,8 +112,4 @@ class APIRequestLog(models.Model):
             "-created_at"
         ]
 
-    def __str__(self):
-
-        return (
-            f"{self.method} {self.path}"
-        )
+       

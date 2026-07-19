@@ -1,5 +1,19 @@
 """
-AI COS WordPress Connector Client
+Enterprise WordPress API Client
+-------------------------------
+
+Production-grade WordPress connector client.
+
+Features:
+- retry-safe requests
+- timeout-safe publishing
+- API authentication
+- SEO metadata support
+- featured image support
+- category/tag support
+- health monitoring
+- response validation
+- production-safe orchestration
 """
 
 from __future__ import annotations
@@ -7,56 +21,110 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
+
 from typing import Any
 
 import requests
 
+from requests import Response
+
 from requests.exceptions import (
+
+    ConnectionError,
+
     RequestException,
+
+    Timeout,
 )
+
+from apps.publisher.constants import (
+
+    CONTENT_TYPE_JSON,
+
+    DEFAULT_TIMEOUT,
+
+    DEFAULT_USER_AGENT,
+
+    HEADER_AUTHORIZATION,
+
+    HEADER_CONTENT_TYPE,
+
+    HEADER_USER_AGENT,
+
+    HTTP_CREATED,
+
+    HTTP_OK,
+
+    WORDPRESS_POSTS_ENDPOINT,
+)
+
+from apps.publisher.exceptions import (
+
+    InvalidAPIResponseException,
+
+    WordPressAuthenticationException,
+
+    WordPressConnectionException,
+
+    WordPressPublishException,
+
+    WordPressTimeoutException,
+)
+
 
 logger = logging.getLogger(
     __name__
 )
 
 
+# =========================================================
+# WORDPRESS CLIENT
+# =========================================================
+
 class WordPressClient:
 
-    # ==================================================
+    """
+    Enterprise WordPress API client.
+    """
+
+    MAX_RETRIES = 3
+
+    RETRY_DELAY = 2
+
+    # =====================================================
     # INIT
-    # ==================================================
+    # =====================================================
 
     def __init__(
         self,
     ):
 
-        # ==========================================
-        # CONFIG
-        # ==========================================
-
         self.wordpress_url = os.getenv(
+
             "WORDPRESS_URL",
+
             "",
         ).rstrip("/")
 
         self.api_key = os.getenv(
+
             "WORDPRESS_API_KEY",
+
             "",
         )
 
-        # ==========================================
-        # VALIDATION
-        # ==========================================
-
         if not self.wordpress_url:
 
-            raise ValueError(
-                "WORDPRESS_URL is missing"
+            raise (
+                WordPressConnectionException(
+                    "WORDPRESS_URL missing."
+                )
             )
 
-        # ==========================================
-        # AI COS CONNECTOR ENDPOINTS
-        # ==========================================
+        # =================================================
+        # ENDPOINTS
+        # =================================================
 
         self.health_api = (
 
@@ -70,136 +138,56 @@ class WordPressClient:
             "/wp-json/aicos/v1/publish"
         )
 
-        # ==========================================
-        # DEFAULT HEADERS
-        # ==========================================
+        self.posts_api = (
+
+            f"{self.wordpress_url}"
+            f"{WORDPRESS_POSTS_ENDPOINT}"
+        )
+
+        # =================================================
+        # HEADERS
+        # =================================================
 
         self.headers = {
 
-            "Content-Type": (
-                "application/json"
+            HEADER_CONTENT_TYPE: (
+                CONTENT_TYPE_JSON
             ),
 
             "Accept": (
-                "application/json"
+                CONTENT_TYPE_JSON
             ),
 
-            # ======================================
-            # Browser-like headers
-            # Helps bypass LiteSpeed challenges
-            # ======================================
-
-            "User-Agent": (
-
-                "Mozilla/5.0 "
-                "(Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/124.0 Safari/537.36"
+            HEADER_USER_AGENT: (
+                DEFAULT_USER_AGENT
             ),
         }
-
-        # ==========================================
-        # OPTIONAL API KEY
-        # ==========================================
 
         if self.api_key:
 
             self.headers[
-                "X-AICOS-KEY"
-            ] = self.api_key
+                HEADER_AUTHORIZATION
+            ] = (
+
+                f"Bearer {self.api_key}"
+            )
+
+        self.session = (
+            requests.Session()
+        )
 
         logger.info(
-            "AI COS WordPress connector initialized."
+            "WordPress client initialized."
         )
 
-    # ==================================================
-    # COMMON REQUEST
-    # ==================================================
+    # =====================================================
+    # SAFE JSON
+    # =====================================================
 
-    def _request(
+    def safe_json(
         self,
-        method: str,
-        url: str,
-        **kwargs,
-    ) -> requests.Response:
-
-        try:
-
-            # ======================================
-            # EXTRA HEADERS
-            # ======================================
-
-            extra_headers = kwargs.pop(
-                "headers",
-                {},
-            )
-
-            headers = {
-                **self.headers,
-                **extra_headers,
-            }
-
-            response = requests.request(
-
-                method=method,
-
-                url=url,
-
-                headers=headers,
-
-                timeout=60,
-
-                **kwargs,
-            )
-
-            logger.info(
-
-                "Connector request "
-                "| method=%s "
-                "| status=%s "
-                "| url=%s",
-
-                method,
-
-                response.status_code,
-
-                url,
-            )
-
-            return response
-
-        except RequestException as error:
-
-            logger.exception(
-
-                "Connector request failed: %s",
-
-                error,
-            )
-
-            raise
-
-    # ==================================================
-    # SAFE JSON RESPONSE
-    # ==================================================
-
-    def _safe_json_response(
-        self,
-        response: requests.Response,
-    ) -> dict[str, Any]:
-
-        raw_text = response.text.strip()
-
-        print(
-            "\n========== RAW RESPONSE =========="
-        )
-
-        print(raw_text)
-
-        print(
-            "==================================\n"
-        )
+        response,
+    ):
 
         try:
 
@@ -212,98 +200,265 @@ class WordPressClient:
                 "Invalid JSON response "
                 "| response=%s",
 
-                raw_text,
+                response.text,
             )
 
-            return {
-
-                "success": False,
-
-                "error": (
-                    "Invalid JSON response"
-                ),
-
-                "raw_response": raw_text,
-            }
-
-    # ==================================================
-    # TEST CONNECTION
-    # ==================================================
-
-    def test_connection(
-        self,
-    ) -> dict[str, Any]:
-
-        try:
-
-            response = self._request(
-
-                "GET",
-
-                self.health_api,
-            )
-
-            data = (
-                self._safe_json_response(
-                    response
+            raise (
+                InvalidAPIResponseException(
+                    "Invalid JSON response."
                 )
             )
 
-            if response.status_code == 200:
+    # =====================================================
+    # REQUEST
+    # =====================================================
 
-                return {
+    def request(
+        self,
+        method,
+        url,
+        **kwargs,
+    ):
 
-                    "success": True,
+        for attempt in range(
 
-                    "message": (
-                        "Connector active"
-                    ),
+            1,
 
-                    "response": data,
+            self.MAX_RETRIES + 1,
+        ):
+
+            try:
+
+                extra_headers = kwargs.pop(
+
+                    "headers",
+
+                    {},
+                )
+
+                headers = {
+
+                    **self.headers,
+
+                    **extra_headers,
                 }
 
-            return {
+                started = time.time()
 
-                "success": False,
+                response = (
 
-                "status_code": (
-                    response.status_code
-                ),
+                    self.session.request(
 
-                "error": data,
-            }
+                        method=method,
 
-        except Exception as error:
+                        url=url,
 
-            logger.exception(
+                        headers=headers,
 
-                "Connection test failed: %s",
+                        timeout=(
+                            DEFAULT_TIMEOUT
+                        ),
 
-                error,
+                        **kwargs,
+                    )
+                )
+
+                latency = round(
+
+                    time.time()
+                    - started,
+
+                    2,
+                )
+
+                logger.info(
+
+                    "WordPress request "
+                    "| method=%s "
+                    "| status=%s "
+                    "| latency=%ss "
+                    "| url=%s",
+
+                    method,
+
+                    response.status_code,
+
+                    latency,
+
+                    url,
+                )
+
+                return response
+
+            except Timeout as error:
+
+                logger.exception(
+
+                    "WordPress timeout "
+                    "| attempt=%s "
+                    "| error=%s",
+
+                    attempt,
+
+                    error,
+                )
+
+                if attempt >= (
+                    self.MAX_RETRIES
+                ):
+
+                    raise (
+                        WordPressTimeoutException(
+                            str(error)
+                        )
+                    )
+
+            except ConnectionError as error:
+
+                logger.exception(
+
+                    "WordPress connection failed "
+                    "| attempt=%s "
+                    "| error=%s",
+
+                    attempt,
+
+                    error,
+                )
+
+                if attempt >= (
+                    self.MAX_RETRIES
+                ):
+
+                    raise (
+                        WordPressConnectionException(
+                            str(error)
+                        )
+                    )
+
+            except RequestException as error:
+
+                logger.exception(
+
+                    "WordPress request failed "
+                    "| attempt=%s "
+                    "| error=%s",
+
+                    attempt,
+
+                    error,
+                )
+
+                if attempt >= (
+                    self.MAX_RETRIES
+                ):
+
+                    raise (
+                        WordPressConnectionException(
+                            str(error)
+                        )
+                    )
+
+            time.sleep(
+                attempt
             )
 
+    # =====================================================
+    # HANDLE RESPONSE
+    # =====================================================
+
+    def handle_response(
+        self,
+        response: Response,
+    ):
+
+        data = (
+            self.safe_json(
+                response
+            )
+        )
+
+        if response.status_code in [
+
+            HTTP_OK,
+
+            HTTP_CREATED,
+        ]:
+
             return {
 
-                "success": False,
+                "success": True,
 
-                "error": str(error),
+                "data": data,
             }
 
-    # ==================================================
-    # CREATE POST
-    # ==================================================
+        if response.status_code == 401:
 
-    def create_post(
+            raise (
+                WordPressAuthenticationException(
+                    "Authentication failed."
+                )
+            )
+
+        raise (
+            WordPressPublishException(
+
+                data.get(
+
+                    "message",
+
+                    "WordPress API error.",
+                )
+            )
+        )
+
+    # =====================================================
+    # TEST CONNECTION
+    # =====================================================
+
+    def test_connection(
         self,
-        title: str,
-        content: str,
-        status: str = "draft",
-        excerpt: str | None = None,
-    ) -> dict[str, Any]:
+    ):
 
-        # ==========================================
-        # PAYLOAD
-        # ==========================================
+        logger.info(
+            "Testing WordPress connection."
+        )
+
+        response = self.request(
+
+            "GET",
+
+            self.health_api,
+        )
+
+        return self.handle_response(
+            response
+        )
+
+    # =====================================================
+    # BUILD PAYLOAD
+    # =====================================================
+
+    def build_payload(
+
+        self,
+
+        title,
+
+        content,
+
+        status="draft",
+
+        excerpt=None,
+
+        slug=None,
+
+        categories=None,
+
+        tags=None,
+
+        featured_image=None,
+    ):
 
         payload = {
 
@@ -320,93 +475,152 @@ class WordPressClient:
                 "excerpt"
             ] = excerpt
 
-        try:
+        if slug:
 
-            response = self._request(
+            payload[
+                "slug"
+            ] = slug
 
-                "POST",
+        if categories:
 
-                self.publish_api,
+            payload[
+                "categories"
+            ] = categories
 
-                json=payload,
+        if tags:
+
+            payload[
+                "tags"
+            ] = tags
+
+        if featured_image:
+
+            payload[
+                "featured_image"
+            ] = featured_image
+
+        return payload
+
+    # =====================================================
+    # CREATE POST
+    # =====================================================
+
+    def create_post(
+
+        self,
+
+        title,
+
+        content,
+
+        status="draft",
+
+        excerpt=None,
+
+        slug=None,
+
+        categories=None,
+
+        tags=None,
+
+        featured_image=None,
+    ):
+
+        payload = self.build_payload(
+
+            title=title,
+
+            content=content,
+
+            status=status,
+
+            excerpt=excerpt,
+
+            slug=slug,
+
+            categories=categories,
+
+            tags=tags,
+
+            featured_image=(
+                featured_image
+            ),
+        )
+
+        logger.info(
+
+            "Creating WordPress post "
+            "| status=%s "
+            "| title=%s",
+
+            status,
+
+            title,
+        )
+
+        response = self.request(
+
+            "POST",
+
+            self.publish_api,
+
+            json=payload,
+        )
+
+        result = (
+            self.handle_response(
+                response
             )
+        )
 
-            data = (
-                self._safe_json_response(
-                    response
-                )
-            )
+        data = result.get(
+            "data",
+            {},
+        )
 
-            # ======================================
-            # FAILED JSON
-            # ======================================
+        logger.info(
 
-            if not data.get(
-                "success",
-                False,
-            ):
+            "WordPress post created "
+            "| post_id=%s",
 
-                return data
+            data.get(
+                "post_id"
+            ),
+        )
 
-            # ======================================
-            # SUCCESS
-            # ======================================
+        return {
 
-            logger.info(
+            "success": True,
 
-                "Post published successfully "
-                "| post_id=%s",
+            "post_id": data.get(
+                "post_id"
+            ),
 
-                data.get(
-                    "post_id"
-                ),
-            )
+            "status": data.get(
+                "status"
+            ),
 
-            return {
+            "url": data.get(
+                "url"
+            ),
 
-                "success": True,
+            "response": data,
+        }
 
-                "status": (
-                    data.get("status")
-                ),
-
-                "post_id": (
-                    data.get("post_id")
-                ),
-
-                "url": (
-                    data.get("url")
-                ),
-
-                "response": data,
-            }
-
-        except Exception as error:
-
-            logger.exception(
-
-                "Create post failed: %s",
-
-                error,
-            )
-
-            return {
-
-                "success": False,
-
-                "error": str(error),
-            }
-
-    # ==================================================
+    # =====================================================
     # CREATE DRAFT
-    # ==================================================
+    # =====================================================
 
     def create_draft(
+
         self,
-        title: str,
-        content: str,
-        excerpt: str | None = None,
-    ) -> dict[str, Any]:
+
+        title,
+
+        content,
+
+        excerpt=None,
+    ):
 
         return self.create_post(
 
@@ -419,16 +633,20 @@ class WordPressClient:
             status="draft",
         )
 
-    # ==================================================
+    # =====================================================
     # PUBLISH POST
-    # ==================================================
+    # =====================================================
 
     def publish_post(
+
         self,
-        title: str,
-        content: str,
-        excerpt: str | None = None,
-    ) -> dict[str, Any]:
+
+        title,
+
+        content,
+
+        excerpt=None,
+    ):
 
         return self.create_post(
 
@@ -440,3 +658,47 @@ class WordPressClient:
 
             status="publish",
         )
+
+    # =====================================================
+    # CLIENT HEALTH
+    # =====================================================
+
+    def health_check(
+        self,
+    ):
+
+        try:
+
+            connection = (
+                self.test_connection()
+            )
+
+            return {
+
+                "success": True,
+
+                "wordpress": (
+                    self.wordpress_url
+                ),
+
+                "connected": True,
+
+                "response": connection,
+            }
+
+        except Exception as error:
+
+            logger.exception(
+
+                f"WordPress health failed: "
+                f"{str(error)}"
+            )
+
+            return {
+
+                "success": False,
+
+                "connected": False,
+
+                "error": str(error),
+            }

@@ -86,14 +86,70 @@ class DiscoveryService:
             OpportunityScorer()
         )
 
+    def _build_trend_map(
+        self,
+        trends
+    ):
+
+        trend_map = {}
+
+        for trend in trends:
+
+            keyword = (
+                trend.get(
+                    "keyword",
+                    ""
+                )
+                .strip()
+                .lower()
+            )
+
+            trend_map[keyword] = (
+                trend.get(
+                    "trend_score",
+                    50
+                )
+            )
+
+        return trend_map
+
+    def _find_trend_score(
+        self,
+        keyword,
+        trend_map
+    ):
+
+        keyword = (
+            keyword.strip()
+            .lower()
+        )
+
+        # =========================
+        # EXACT MATCH
+        # =========================
+
+        if keyword in trend_map:
+
+            return trend_map[keyword]
+
+        # =========================
+        # PARTIAL MATCH
+        # =========================
+
+        for trend_keyword, score in (
+            trend_map.items()
+        ):
+
+            if keyword in trend_keyword:
+
+                return score
+
+        return 50
+
     def discover(
         self,
         seed_keyword
     ):
-
-        # =========================
-        # START TIMER
-        # =========================
 
         start_time = time.time()
 
@@ -117,17 +173,13 @@ class DiscoveryService:
                     )
                 )
 
-            # =========================
-            # NORMALIZE KEYWORD
-            # =========================
-
             seed_keyword = (
                 KeywordNormalizer.normalize(
                     seed_keyword
                 )
             )
 
-            if len(seed_keyword) < 3:
+            if len(seed_keyword) < 2:
 
                 raise (
                     KeywordValidationException(
@@ -145,9 +197,11 @@ class DiscoveryService:
                 )
             )
 
-            raw_keywords = keyword_result.get(
-                "keywords",
-                []
+            raw_keywords = (
+                keyword_result.get(
+                    "keywords",
+                    []
+                )
             )
 
             logger.info(
@@ -174,10 +228,6 @@ class DiscoveryService:
                 )
             )
 
-            # =========================
-            # REMOVE DUPLICATES
-            # =========================
-
             cleaned_keywords = (
                 Helpers.unique_list(
                     cleaned_keywords
@@ -194,40 +244,40 @@ class DiscoveryService:
             # COLLECT TRENDS
             # =========================
 
-            trend_result = (
-                self.trend_collector.collect(
-                    seed_keyword
-                )
-            )
+            try:
 
-            trends = trend_result.get(
-                "trends",
-                []
-            )
-
-            # =========================
-            # BUILD TREND MAP
-            # =========================
-
-            trend_map = {}
-
-            for trend in trends:
-
-                trend_keyword = (
-                    trend.get(
-                        "keyword",
-                        ""
+                trend_result = (
+                    self.trend_collector.collect(
+                        seed_keyword
                     )
                 )
 
-                trend_score = trend.get(
-                    "trend_score",
-                    50
+                trends = (
+                    trend_result.get(
+                        "trends",
+                        []
+                    )
                 )
 
-                trend_map[
-                    trend_keyword
-                ] = trend_score
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Trend collection failed: "
+                    f"{str(error)}"
+                )
+
+                trends = []
+
+            # =========================
+            # TREND MAP
+            # =========================
+
+            trend_map = (
+                self._build_trend_map(
+                    trends
+                )
+            )
 
             # =========================
             # BUILD OPPORTUNITIES
@@ -235,50 +285,69 @@ class DiscoveryService:
 
             opportunities = []
 
-            for keyword in cleaned_keywords:
+            for keyword in (
+                cleaned_keywords
+            ):
 
-                # =====================
-                # DETECT INTENT
-                # =====================
+                try:
 
-                intent_result = (
-                    self.intent_detector.detect(
-                        keyword
+                    # =====================
+                    # INTENT DETECTION
+                    # =====================
+
+                    intent_result = (
+                        self.intent_detector.detect(
+                            keyword
+                        )
                     )
-                )
 
-                intent = intent_result.get(
-                    "intent",
-                    "general"
-                )
-
-                # =====================
-                # TREND SCORE
-                # =====================
-
-                trend_score = trend_map.get(
-                    keyword,
-                    50
-                )
-
-                # =====================
-                # OPPORTUNITY SCORE
-                # =====================
-
-                score_result = (
-                    self.opportunity_scorer.score(
-
-                        keyword=keyword,
-
-                        intent=intent,
-
-                        trend_score=trend_score
+                    intent = (
+                        intent_result.get(
+                            "intent",
+                            "general"
+                        )
                     )
-                )
 
-                opportunities.append(
-                    score_result
-                )
+                    # =====================
+                    # TREND SCORE
+                    # =====================
+
+                    trend_score = (
+                        self._find_trend_score(
+                            keyword,
+                            trend_map
+                        )
+                    )
+
+                    # =====================
+                    # SCORE
+                    # =====================
+
+                    score_result = (
+                        self.opportunity_scorer.score(
+
+                            keyword=keyword,
+
+                            intent=intent,
+
+                            trend_score=trend_score
+                        )
+                    )
+
+                    opportunities.append(
+                        score_result
+                    )
+
+                except Exception as error:
+
+                    logger.warning(
+
+                        f"Failed processing keyword: "
+                        f"{keyword} | "
+                        f"{str(error)}"
+                    )
+
+                    continue
 
             # =========================
             # SORT OPPORTUNITIES
@@ -297,11 +366,28 @@ class DiscoveryService:
             # CLUSTER KEYWORDS
             # =========================
 
-            cluster_result = (
-                self.keyword_cluster.cluster(
-                    cleaned_keywords
+            try:
+
+                cluster_result = (
+                    self.keyword_cluster.cluster(
+                        cleaned_keywords
+                    )
                 )
-            )
+
+            except Exception as error:
+
+                logger.warning(
+
+                    f"Clustering failed: "
+                    f"{str(error)}"
+                )
+
+                cluster_result = {
+
+                    "total_clusters": 0,
+
+                    "clusters": [],
+                }
 
             # =========================
             # EXECUTION TIME
@@ -320,7 +406,7 @@ class DiscoveryService:
             )
 
             # =========================
-            # RETURN FINAL RESULT
+            # RETURN RESULT
             # =========================
 
             return {
@@ -351,6 +437,10 @@ class DiscoveryService:
                     trends[:10]
                 ),
             }
+
+        except KeywordValidationException:
+
+            raise
 
         except Exception as error:
 

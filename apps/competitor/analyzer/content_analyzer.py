@@ -4,6 +4,8 @@ Competitor content analyzer.
 
 import re
 
+from collections import Counter
+
 from utils.helpers import (
     Helpers,
 )
@@ -42,6 +44,10 @@ class ContentAnalyzer:
         "vs",
     ]
 
+    # ==================================================
+    # TITLE PATTERN DETECTION
+    # ==================================================
+
     def detect_title_patterns(
         self,
         title,
@@ -78,6 +84,10 @@ class ContentAnalyzer:
 
         return detected
 
+    # ==================================================
+    # CLEAN HEADINGS
+    # ==================================================
+
     def clean_headings(
         self,
         headings,
@@ -110,6 +120,84 @@ class ContentAnalyzer:
             )
 
         return cleaned
+
+    # ==================================================
+    # HEADING FREQUENCY
+    # ==================================================
+
+    def calculate_heading_frequency(
+        self,
+        headings,
+    ):
+
+        """
+        Calculate heading frequency.
+        """
+
+        normalized = []
+
+        for heading in headings:
+
+            cleaned = (
+                str(heading)
+                .strip()
+                .lower()
+            )
+
+            if cleaned:
+
+                normalized.append(
+                    cleaned
+                )
+
+        counter = Counter(
+            normalized
+        )
+
+        return dict(
+            counter.most_common(20)
+        )
+
+    # ==================================================
+    # TITLE PATTERN FREQUENCY
+    # ==================================================
+
+    def calculate_pattern_frequency(
+        self,
+        patterns,
+    ):
+
+        """
+        Calculate SEO title pattern frequency.
+        """
+
+        normalized = []
+
+        for pattern in patterns:
+
+            cleaned = (
+                str(pattern)
+                .strip()
+                .lower()
+            )
+
+            if cleaned:
+
+                normalized.append(
+                    cleaned
+                )
+
+        counter = Counter(
+            normalized
+        )
+
+        return dict(
+            counter.most_common(20)
+        )
+
+    # ==================================================
+    # ANALYZE
+    # ==================================================
 
     def analyze(
         self,
@@ -157,7 +245,11 @@ class ContentAnalyzer:
 
                 "common_headings": [],
 
+                "heading_frequency": {},
+
                 "title_patterns": [],
+
+                "title_pattern_frequency": {},
 
                 "analyzed_results": [],
             }
@@ -306,28 +398,32 @@ class ContentAnalyzer:
         )
 
         # ==========================================
-        # UNIQUE HEADINGS
+        # HEADING FREQUENCY
         # ==========================================
 
-        unique_headings = (
-            Helpers.unique_list(
+        heading_frequency = (
+            self.calculate_heading_frequency(
                 all_headings
             )
         )
 
-        unique_headings.sort()
+        common_headings = list(
+            heading_frequency.keys()
+        )
 
         # ==========================================
-        # UNIQUE TITLE PATTERNS
+        # TITLE PATTERN FREQUENCY
         # ==========================================
 
-        unique_patterns = (
-            Helpers.unique_list(
+        title_pattern_frequency = (
+            self.calculate_pattern_frequency(
                 title_patterns
             )
         )
 
-        unique_patterns.sort()
+        unique_patterns = list(
+            title_pattern_frequency.keys()
+        )
 
         # ==========================================
         # CONTENT DEPTH SCORE
@@ -385,11 +481,19 @@ class ContentAnalyzer:
             ),
 
             "common_headings": (
-                unique_headings
+                common_headings
+            ),
+
+            "heading_frequency": (
+                heading_frequency
             ),
 
             "title_patterns": (
                 unique_patterns
+            ),
+
+            "title_pattern_frequency": (
+                title_pattern_frequency
             ),
 
             "analyzed_results": (

@@ -40,6 +40,10 @@ class GapFinder:
         "optimization",
     ]
 
+    # ==================================================
+    # NORMALIZE SECTIONS
+    # ==================================================
+
     def normalize_sections(
         self,
         sections,
@@ -66,6 +70,10 @@ class GapFinder:
 
         return normalized
 
+    # ==================================================
+    # SECTION EXISTS
+    # ==================================================
+
     def section_exists(
         self,
         target,
@@ -81,6 +89,70 @@ class GapFinder:
         )
 
         return target in sections
+
+    # ==================================================
+    # GAP PRIORITY
+    # ==================================================
+
+    def calculate_gap_priority(
+        self,
+        frequency,
+    ):
+
+        """
+        Calculate SEO gap priority.
+        """
+
+        if frequency >= 8:
+
+            return "critical"
+
+        if frequency >= 5:
+
+            return "high"
+
+        if frequency >= 3:
+
+            return "medium"
+
+        return "low"
+
+    # ==================================================
+    # BUILD GAP
+    # ==================================================
+
+    def build_gap(
+        self,
+        gap,
+        frequency=0,
+    ):
+
+        """
+        Build structured gap object.
+        """
+
+        priority = (
+            self.calculate_gap_priority(
+                frequency
+            )
+        )
+
+        return {
+
+            "gap": gap,
+
+            "frequency": (
+                frequency
+            ),
+
+            "priority": (
+                priority
+            ),
+        }
+
+    # ==================================================
+    # FIND GAPS
+    # ==================================================
 
     def find_gaps(
         self,
@@ -113,6 +185,13 @@ class GapFinder:
             )
         )
 
+        heading_frequency = (
+            content_analysis.get(
+                "heading_frequency",
+                {}
+            )
+        )
+
         average_word_count = (
             content_analysis.get(
                 "average_word_count",
@@ -124,6 +203,13 @@ class GapFinder:
             structure_analysis.get(
                 "common_sections",
                 []
+            )
+        )
+
+        section_frequency = (
+            structure_analysis.get(
+                "section_frequency",
+                {}
             )
         )
 
@@ -147,6 +233,13 @@ class GapFinder:
         # FAQ GAP
         # ==========================================
 
+        faq_frequency = (
+            section_frequency.get(
+                "faq",
+                0
+            )
+        )
+
         if not self.section_exists(
 
             "faq",
@@ -156,12 +249,29 @@ class GapFinder:
 
             content_gaps.append(
 
-                "Most competitors are missing FAQ sections."
+                self.build_gap(
+
+                    gap=(
+                        "Most competitors "
+                        "are missing FAQ sections."
+                    ),
+
+                    frequency=(
+                        faq_frequency
+                    ),
+                )
             )
 
         # ==========================================
         # CONCLUSION GAP
         # ==========================================
+
+        conclusion_frequency = (
+            section_frequency.get(
+                "conclusion",
+                0
+            )
+        )
 
         if not self.section_exists(
 
@@ -172,12 +282,30 @@ class GapFinder:
 
             content_gaps.append(
 
-                "Many competitors do not include strong conclusions."
+                self.build_gap(
+
+                    gap=(
+                        "Many competitors "
+                        "do not include "
+                        "strong conclusions."
+                    ),
+
+                    frequency=(
+                        conclusion_frequency
+                    ),
+                )
             )
 
         # ==========================================
         # BUYING GUIDE GAP
         # ==========================================
+
+        buying_guide_frequency = (
+            section_frequency.get(
+                "buying guide",
+                0
+            )
+        )
 
         if not self.section_exists(
 
@@ -188,7 +316,17 @@ class GapFinder:
 
             content_gaps.append(
 
-                "Buying guide content opportunity detected."
+                self.build_gap(
+
+                    gap=(
+                        "Buying guide content "
+                        "opportunity detected."
+                    ),
+
+                    frequency=(
+                        buying_guide_frequency
+                    ),
+                )
             )
 
         # ==========================================
@@ -201,7 +339,16 @@ class GapFinder:
 
             content_gaps.append(
 
-                "Competitor articles have relatively low content depth."
+                self.build_gap(
+
+                    gap=(
+                        "Competitor articles "
+                        "have relatively low "
+                        "content depth."
+                    ),
+
+                    frequency=5,
+                )
             )
 
         # ==========================================
@@ -212,6 +359,13 @@ class GapFinder:
             self.ADVANCED_PATTERNS
         ):
 
+            pattern_frequency = (
+                heading_frequency.get(
+                    pattern,
+                    0
+                )
+            )
+
             if not self.section_exists(
 
                 pattern,
@@ -221,26 +375,91 @@ class GapFinder:
 
                 content_gaps.append(
 
-                    f"Missing advanced section: {pattern.title()}"
+                    self.build_gap(
+
+                        gap=(
+                            f"Missing advanced "
+                            f"section: "
+                            f"{pattern.title()}"
+                        ),
+
+                        frequency=(
+                            pattern_frequency
+                        ),
+                    )
                 )
 
         # ==========================================
         # REMOVE DUPLICATES
         # ==========================================
 
-        unique_gaps = (
-            Helpers.unique_list(
-                content_gaps
-            )
-        )
+        unique_gaps = []
 
-        unique_gaps.sort()
+        seen = set()
+
+        for gap in content_gaps:
+
+            gap_name = gap.get(
+                "gap",
+                ""
+            )
+
+            if gap_name in seen:
+
+                continue
+
+            seen.add(
+                gap_name
+            )
+
+            unique_gaps.append(
+                gap
+            )
+
+        # ==========================================
+        # SORT BY PRIORITY
+        # ==========================================
+
+        priority_order = {
+
+            "critical": 4,
+
+            "high": 3,
+
+            "medium": 2,
+
+            "low": 1,
+        }
+
+        unique_gaps.sort(
+
+            key=lambda x: (
+
+                priority_order.get(
+
+                    x.get(
+                        "priority",
+                        "low"
+                    ),
+
+                    1,
+                ),
+
+                x.get(
+                    "frequency",
+                    0
+                ),
+            ),
+
+            reverse=True,
+        )
 
         # ==========================================
         # GAP SCORE
         # ==========================================
 
         raw_gap_score = (
+
             len(unique_gaps) * 10
         )
 

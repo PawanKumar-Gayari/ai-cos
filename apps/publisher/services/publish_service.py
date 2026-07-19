@@ -1,16 +1,60 @@
 """
-Publishing service.
+Enterprise Publishing Service
+-----------------------------
+
+Production-grade WordPress publishing service.
+
+Features:
+- retry-safe publishing
+- SEO metadata support
+- WordPress draft/publish support
+- publishing analytics
+- response tracking
+- rollback-safe workflow
+- transaction-safe publishing
+- production-safe orchestration
 """
 
 from __future__ import annotations
 
 import logging
+import re
+import time
+
 from typing import Any
+
+from django.db import transaction
 
 from django.utils import timezone
 
+from apps.engine.models import (
+    Article,
+)
+
 from apps.publisher.clients.wordpress_client import (
     WordPressClient,
+)
+
+from apps.publisher.constants import (
+
+    STATUS_DRAFT,
+
+    STATUS_FAILED,
+
+    STATUS_PENDING,
+
+    STATUS_PUBLISHED,
+)
+
+from apps.publisher.exceptions import (
+
+    ArticleNotFoundException,
+
+    EmptyArticleContentException,
+
+    InvalidArticleException,
+
+    WordPressPublishException,
 )
 
 from apps.publisher.models import (
@@ -23,11 +67,21 @@ logger = logging.getLogger(
 )
 
 
+# =========================================================
+# PUBLISH SERVICE
+# =========================================================
+
 class PublishService:
 
-    # ==================================================
+    """
+    Enterprise WordPress publishing service.
+    """
+
+    MAX_RETRIES = 3
+
+    # =====================================================
     # INIT
-    # ==================================================
+    # =====================================================
 
     def __init__(
         self,
@@ -37,43 +91,158 @@ class PublishService:
             WordPressClient()
         )
 
-    # ==================================================
-    # CREATE TRACKER
-    # ==================================================
+    # =====================================================
+    # SLUG
+    # =====================================================
 
-    def _create_tracker(
+    def generate_slug(
+        self,
+        title,
+    ):
+
+        title = str(
+            title
+        ).strip().lower()
+
+        title = re.sub(
+
+            r"[^\w\s-]",
+
+            "",
+
+            title,
+        )
+
+        title = re.sub(
+
+            r"\s+",
+
+            "-",
+
+            title,
+        )
+
+        return title.strip("-")
+
+    # =====================================================
+    # META DESCRIPTION
+    # =====================================================
+
+    def meta_description(
         self,
         article,
-    ) -> PublishedPost:
+    ):
+
+        meta = getattr(
+
+            article,
+
+            "meta_description",
+
+            "",
+        )
+
+        if meta:
+
+            return str(meta)[:160]
+
+        content = str(
+            article.content
+        )
+
+        cleaned = re.sub(
+
+            r"#|\*|`|>",
+
+            "",
+
+            content,
+        )
+
+        return cleaned[:160]
+
+    # =====================================================
+    # VALIDATE ARTICLE
+    # =====================================================
+
+    def validate_article(
+        self,
+        article: Article,
+    ):
+
+        if not article:
+
+            raise (
+                ArticleNotFoundException()
+            )
+
+        if not article.title:
+
+            raise (
+                InvalidArticleException(
+                    "Article title missing."
+                )
+            )
+
+        if not article.content:
+
+            raise (
+                EmptyArticleContentException()
+            )
+
+        if len(
+            article.content
+        ) < 300:
+
+            raise (
+                InvalidArticleException(
+                    "Article content too short."
+                )
+            )
+
+    # =====================================================
+    # CREATE TRACKER
+    # =====================================================
+
+    def create_tracker(
+        self,
+        article,
+    ):
 
         return PublishedPost.objects.create(
 
             article=article,
 
-            status=(
-                PublishedPost.STATUS_PENDING
-            ),
+            status=STATUS_PENDING,
 
             publish_attempts=1,
         )
 
-    # ==================================================
-    # UPDATE FAILED TRACKER
-    # ==================================================
+    # =====================================================
+    # MARK FAILED
+    # =====================================================
 
-    def _mark_failed(
+    def mark_failed(
+
         self,
-        tracker: PublishedPost,
-        error_message: str,
-        response_data: dict | None = None,
-    ) -> None:
+
+        tracker,
+
+        error_message,
+
+        response_data=None,
+    ):
 
         tracker.status = (
-            PublishedPost.STATUS_FAILED
+            STATUS_FAILED
         )
 
         tracker.error_message = (
-            error_message
+            str(error_message)
+        )
+
+        tracker.last_error_at = (
+            timezone.now()
         )
 
         if response_data:
@@ -82,26 +251,48 @@ class PublishService:
                 response_data
             )
 
-        tracker.save()
+        tracker.save(
 
-    # ==================================================
-    # UPDATE SUCCESS TRACKER
-    # ==================================================
+            update_fields=[
 
-    def _mark_success(
+                "status",
+
+                "error_message",
+
+                "last_error_at",
+
+                "response_data",
+
+                "updated_at",
+            ]
+        )
+
+    # =====================================================
+    # MARK SUCCESS
+    # =====================================================
+
+    def mark_success(
+
         self,
-        tracker: PublishedPost,
-        response: dict,
-        publish: bool,
-    ) -> None:
+
+        tracker,
+
+        response,
+
+        publish,
+
+        duration,
+    ):
 
         tracker.wordpress_post_id = (
+
             response.get(
                 "post_id"
             )
         )
 
         tracker.wordpress_url = (
+
             response.get(
                 "url"
             )
@@ -111,88 +302,150 @@ class PublishService:
             response
         )
 
+        tracker.publish_duration = (
+            duration
+        )
+
         tracker.published_at = (
             timezone.now()
         )
 
-        if publish:
+        tracker.status = (
 
-            tracker.status = (
-                PublishedPost.STATUS_PUBLISHED
-            )
+            STATUS_PUBLISHED
 
-        else:
+            if publish
 
-            tracker.status = (
-                PublishedPost.STATUS_DRAFT
-            )
+            else STATUS_DRAFT
+        )
 
-        tracker.save()
+        tracker.save(
 
-    # ==================================================
-    # PUBLISH ARTICLE
-    # ==================================================
+            update_fields=[
 
-    def publish_article(
+                "wordpress_post_id",
+
+                "wordpress_url",
+
+                "response_data",
+
+                "publish_duration",
+
+                "published_at",
+
+                "status",
+
+                "updated_at",
+            ]
+        )
+
+    # =====================================================
+    # UPDATE ARTICLE
+    # =====================================================
+
+    def update_article(
+
         self,
+
         article,
-        publish: bool = False,
+
+        response,
+
+        publish,
+    ):
+
+        article.is_published = (
+            publish
+        )
+
+        article.published_url = (
+
+            response.get(
+                "url"
+            )
+        )
+
+        article.save(
+
+            update_fields=[
+
+                "is_published",
+
+                "published_url",
+
+                "updated_at",
+            ]
+        )
+
+    # =====================================================
+    # BUILD PAYLOAD
+    # =====================================================
+
+    def build_payload(
+
+        self,
+
+        article,
+
+        publish=False,
+    ):
+
+        status = (
+
+            "publish"
+
+            if publish
+
+            else "draft"
+        )
+
+        return {
+
+            "title":
+            article.title,
+
+            "content":
+            article.content,
+
+            "excerpt": (
+
+                self.meta_description(
+                    article
+                )
+            ),
+
+            "slug": (
+
+                self.generate_slug(
+                    article.title
+                )
+            ),
+
+            "status":
+            status,
+        }
+
+    # =====================================================
+    # PUBLISH ARTICLE
+    # =====================================================
+
+    @transaction.atomic
+    def publish_article(
+
+        self,
+
+        article: Article,
+
+        publish=False,
     ) -> dict[str, Any]:
 
-        # ==========================================
-        # VALIDATE ARTICLE
-        # ==========================================
-
-        if not article:
-
-            return {
-
-                "success": False,
-
-                "error": (
-                    "Article is required"
-                ),
-            }
-
-        title = getattr(
-            article,
-            "title",
-            None,
+        start_time = (
+            time.perf_counter()
         )
 
-        content = getattr(
-            article,
-            "content",
-            None,
+        self.validate_article(
+            article
         )
-
-        meta_description = getattr(
-            article,
-            "meta_description",
-            "",
-        )
-
-        if not title:
-
-            return {
-
-                "success": False,
-
-                "error": (
-                    "Article title missing"
-                ),
-            }
-
-        if not content:
-
-            return {
-
-                "success": False,
-
-                "error": (
-                    "Article content missing"
-                ),
-            }
 
         logger.info(
 
@@ -202,228 +455,208 @@ class PublishService:
             article.id,
         )
 
-        # ==========================================
-        # TRACKER
-        # ==========================================
-
-        tracker = self._create_tracker(
-            article
+        tracker = (
+            self.create_tracker(
+                article
+            )
         )
 
-        # ==========================================
-        # STATUS
-        # ==========================================
+        payload = (
+            self.build_payload(
 
-        status = "draft"
+                article,
 
-        if publish:
-
-            status = "publish"
-
-        # ==========================================
-        # WORDPRESS REQUEST
-        # ==========================================
-
-        try:
-
-            response = (
-
-                self.wordpress.create_post(
-
-                    title=title,
-
-                    content=content,
-
-                    excerpt=meta_description,
-
-                    status=status,
-                )
+                publish=publish,
             )
+        )
 
-            # ======================================
-            # FAILED
-            # ======================================
+        for attempt in range(
 
-            if not response.get(
-                "success"
-            ):
+            1,
 
-                error_message = response.get(
-                    "error",
-                    "Unknown publishing error",
-                )
+            self.MAX_RETRIES + 1,
+        ):
 
-                logger.error(
+            try:
 
-                    "Publishing failed "
+                logger.info(
+
+                    "WordPress publish attempt "
                     "| article_id=%s "
-                    "| error=%s",
+                    "| attempt=%s",
 
                     article.id,
 
-                    error_message,
+                    attempt,
                 )
 
-                self._mark_failed(
+                response = (
+
+                    self.wordpress.create_post(
+                        **payload
+                    )
+                )
+
+                if not response.get(
+                    "success"
+                ):
+
+                    raise (
+                        WordPressPublishException(
+
+                            response.get(
+
+                                "error",
+
+                                "Publishing failed.",
+                            )
+                        )
+                    )
+
+                duration = round(
+
+                    (
+                        time.perf_counter()
+                        - start_time
+                    ),
+
+                    2,
+                )
+
+                self.mark_success(
 
                     tracker=tracker,
 
-                    error_message=(
-                        error_message
+                    response=response,
+
+                    publish=publish,
+
+                    duration=duration,
+                )
+
+                self.update_article(
+
+                    article=article,
+
+                    response=response,
+
+                    publish=publish,
+                )
+
+                logger.info(
+
+                    "Publishing successful "
+                    "| article_id=%s "
+                    "| wordpress_post_id=%s "
+                    "| duration=%ss",
+
+                    article.id,
+
+                    response.get(
+                        "post_id"
                     ),
 
-                    response_data=response,
+                    duration,
                 )
 
                 return {
 
-                    "success": False,
-
-                    "status": (
-                        "failed"
-                    ),
+                    "success": True,
 
                     "tracker_id": (
                         tracker.id
                     ),
 
-                    "error": (
-                        error_message
+                    "article_id": (
+                        article.id
                     ),
+
+                    "wordpress_post_id": (
+
+                        response.get(
+                            "post_id"
+                        )
+                    ),
+
+                    "status": (
+                        response.get(
+                            "status"
+                        )
+                    ),
+
+                    "url": (
+                        response.get(
+                            "url"
+                        )
+                    ),
+
+                    "duration": duration,
+
+                    "attempt": attempt,
 
                     "response": response,
                 }
 
-            # ======================================
-            # SUCCESS
-            # ======================================
+            except Exception as error:
 
-            self._mark_success(
+                logger.exception(
 
-                tracker=tracker,
+                    "Publishing failed "
+                    "| article_id=%s "
+                    "| attempt=%s "
+                    "| error=%s",
 
-                response=response,
+                    article.id,
 
-                publish=publish,
-            )
+                    attempt,
 
-            # ======================================
-            # UPDATE ARTICLE
-            # ======================================
-
-            article.is_published = (
-                publish
-            )
-
-            article.published_url = (
-
-                response.get(
-                    "url"
+                    error,
                 )
-            )
 
-            article.save(
+                self.mark_failed(
 
-                update_fields=[
+                    tracker=tracker,
 
-                    "is_published",
+                    error_message=str(
+                        error
+                    ),
+                )
 
-                    "published_url",
+                if attempt >= (
+                    self.MAX_RETRIES
+                ):
 
-                    "updated_at",
-                ]
-            )
+                    return {
 
-            logger.info(
+                        "success": False,
 
-                "Publishing successful "
-                "| article_id=%s "
-                "| wordpress_post_id=%s",
+                        "tracker_id": (
+                            tracker.id
+                        ),
 
-                article.id,
+                        "article_id": (
+                            article.id
+                        ),
 
-                response.get(
-                    "post_id"
-                ),
-            )
+                        "status": STATUS_FAILED,
 
-            return {
+                        "error": str(
+                            error
+                        ),
 
-                "success": True,
+                        "attempt": attempt,
+                    }
 
-                "status": (
-                    response.get(
-                        "status"
-                    )
-                ),
+                time.sleep(attempt)
 
-                "article_id": (
-                    article.id
-                ),
-
-                "tracker_id": (
-                    tracker.id
-                ),
-
-                "wordpress_post_id": (
-
-                    response.get(
-                        "post_id"
-                    )
-                ),
-
-                "url": (
-                    response.get(
-                        "url"
-                    )
-                ),
-
-                "response": response,
-            }
-
-        except Exception as error:
-
-            logger.exception(
-
-                "Publish service failed "
-                "| article_id=%s "
-                "| error=%s",
-
-                article.id,
-
-                error,
-            )
-
-            self._mark_failed(
-
-                tracker=tracker,
-
-                error_message=str(
-                    error
-                ),
-            )
-
-            return {
-
-                "success": False,
-
-                "status": "failed",
-
-                "tracker_id": (
-                    tracker.id
-                ),
-
-                "error": str(error),
-            }
-
-    # ==================================================
+    # =====================================================
     # CREATE DRAFT
-    # ==================================================
+    # =====================================================
 
     def create_draft(
         self,
         article,
-    ) -> dict[str, Any]:
+    ):
 
         return self.publish_article(
 
@@ -432,14 +665,14 @@ class PublishService:
             publish=False,
         )
 
-    # ==================================================
+    # =====================================================
     # PUBLISH LIVE
-    # ==================================================
+    # =====================================================
 
     def publish_live(
         self,
         article,
-    ) -> dict[str, Any]:
+    ):
 
         return self.publish_article(
 
@@ -448,18 +681,65 @@ class PublishService:
             publish=True,
         )
 
-    # ==================================================
+    # =====================================================
     # TEST CONNECTION
-    # ==================================================
+    # =====================================================
 
     def test_connection(
         self,
-    ) -> dict[str, Any]:
+    ):
 
         logger.info(
             "Testing WordPress connection."
         )
 
         return (
-            self.wordpress.test_connection()
+            self.wordpress
+            .test_connection()
         )
+
+    # =====================================================
+    # SERVICE HEALTH
+    # =====================================================
+
+    def health_check(
+        self,
+    ):
+
+        try:
+
+            connection = (
+                self.test_connection()
+            )
+
+            return {
+
+                "success": True,
+
+                "service": (
+                    "publish_service"
+                ),
+
+                "wordpress": (
+                    connection
+                ),
+
+                "retries": (
+                    self.MAX_RETRIES
+                ),
+            }
+
+        except Exception as error:
+
+            logger.exception(
+
+                f"Publish service health "
+                f"failed: {str(error)}"
+            )
+
+            return {
+
+                "success": False,
+
+                "error": str(error),
+            }

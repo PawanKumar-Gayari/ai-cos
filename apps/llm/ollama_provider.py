@@ -1,15 +1,35 @@
 """
-Enterprise Ollama local LLM provider.
+Enterprise Ollama Local LLM Provider
+------------------------------------
+
+Production-grade Ollama provider.
+
+Features:
+- OCI optimized
+- retry-safe requests
+- streaming-ready architecture
+- timeout protection
+- markdown-safe cleanup
+- local inference support
+- model switching
+- production-safe orchestration
 """
 
+from __future__ import annotations
+
 import logging
+import re
+import time
 
 import requests
 
 from requests.exceptions import (
-    RequestException,
-    Timeout,
+
     ConnectionError,
+
+    RequestException,
+
+    Timeout,
 )
 
 from apps.llm.base_provider import (
@@ -32,11 +52,19 @@ class OllamaProvider(
 
     DEFAULT_TEMPERATURE = 0.7
 
-    DEFAULT_MAX_TOKENS = 512
+    DEFAULT_MAX_TOKENS = 2048
 
-    REQUEST_TIMEOUT = 60
+    REQUEST_TIMEOUT = 180
 
     HEALTH_TIMEOUT = 5
+
+    MAX_RETRIES = 3
+
+    RETRY_DELAY = 2
+
+    # =============================================
+    # INIT
+    # =============================================
 
     def __init__(
         self,
@@ -44,19 +72,11 @@ class OllamaProvider(
         model="tinyllama",
     ):
 
-        """
-        Initialize Ollama provider.
-        """
-
         self.base_url = (
             base_url.rstrip("/")
         )
 
         self.model = model
-
-        # ==========================================
-        # REQUEST SESSION
-        # ==========================================
 
         self.session = (
             requests.Session()
@@ -64,21 +84,17 @@ class OllamaProvider(
 
         logger.info(
 
-            f"Ollama provider initialized "
-            f"with model: {model}"
+            f"Ollama initialized | "
+            f"model={model}"
         )
 
-    # ==================================================
+    # =============================================
     # ENDPOINT
-    # ==================================================
+    # =============================================
 
     def endpoint(
         self
     ):
-
-        """
-        Ollama generate endpoint.
-        """
 
         return (
 
@@ -86,40 +102,71 @@ class OllamaProvider(
             "/api/generate"
         )
 
-    # ==================================================
+    # =============================================
     # CLEAN RESPONSE
-    # ==================================================
+    # =============================================
 
     def clean_response(
         self,
         text,
     ):
 
-        """
-        Clean Ollama output.
-        """
-
         if not text:
 
             return ""
 
-        return str(
-            text
-        ).strip()
+        text = str(text).strip()
 
-    # ==================================================
+        # =========================================
+        # REMOVE EMPTY CODE BLOCKS
+        # =========================================
+
+        text = re.sub(
+
+            r"```+\s*```+",
+
+            "",
+
+            text,
+        )
+
+        # =========================================
+        # REMOVE MULTI SPACES
+        # =========================================
+
+        text = re.sub(
+
+            r"[ \t]+",
+
+            " ",
+
+            text,
+        )
+
+        # =========================================
+        # REMOVE EXCESSIVE NEWLINES
+        # =========================================
+
+        text = re.sub(
+
+            r"\n{4,}",
+
+            "\n\n",
+
+            text,
+        )
+
+        return text.strip()
+
+    # =============================================
     # PAYLOAD
-    # ==================================================
+    # =============================================
 
     def payload(
         self,
         prompt,
         **kwargs,
     ):
-
-        """
-        Build Ollama request payload.
-        """
 
         return {
 
@@ -136,7 +183,9 @@ class OllamaProvider(
                 "temperature": (
 
                     kwargs.get(
+
                         "temperature",
+
                         self.DEFAULT_TEMPERATURE,
                     )
                 ),
@@ -144,16 +193,48 @@ class OllamaProvider(
                 "num_predict": (
 
                     kwargs.get(
+
                         "max_tokens",
+
                         self.DEFAULT_MAX_TOKENS,
                     )
                 ),
             },
         }
 
-    # ==================================================
-    # MAIN GENERATION
-    # ==================================================
+    # =============================================
+    # SAFE RESPONSE
+    # =============================================
+
+    def safe_response_text(
+        self,
+        data,
+    ):
+
+        try:
+
+            if not isinstance(
+                data,
+                dict,
+            ):
+
+                return ""
+
+            return str(
+
+                data.get(
+                    "response",
+                    ""
+                )
+            ).strip()
+
+        except Exception:
+
+            return ""
+
+    # =============================================
+    # GENERATE
+    # =============================================
 
     def generate(
         self,
@@ -161,133 +242,203 @@ class OllamaProvider(
         **kwargs,
     ):
 
-        """
-        Generate Ollama response.
-        """
+        for attempt in range(
+
+            1,
+
+            self.MAX_RETRIES + 1,
+        ):
+
+            try:
+
+                logger.info(
+
+                    f"Ollama generate | "
+                    f"attempt={attempt} | "
+                    f"model={self.model}"
+                )
+
+                started = time.time()
+
+                response = (
+                    self.session.post(
+
+                        self.endpoint(),
+
+                        json=self.payload(
+
+                            prompt,
+
+                            **kwargs,
+                        ),
+
+                        timeout=(
+                            self.REQUEST_TIMEOUT
+                        ),
+                    )
+                )
+
+                response.raise_for_status()
+
+                data = response.json()
+
+                response_text = (
+
+                    self.clean_response(
+
+                        self.safe_response_text(
+                            data
+                        )
+                    )
+                )
+
+                if not response_text:
+
+                    raise ValueError(
+                        "Empty Ollama response."
+                    )
+
+                execution_time = round(
+
+                    time.time()
+                    - started,
+
+                    2,
+                )
+
+                logger.info(
+
+                    f"Ollama success | "
+                    f"time={execution_time}s"
+                )
+
+                return response_text
+
+            except Timeout:
+
+                logger.warning(
+                    "Ollama timeout."
+                )
+
+            except ConnectionError:
+
+                logger.warning(
+                    "Ollama unavailable."
+                )
+
+            except RequestException as error:
+
+                logger.exception(
+
+                    f"Ollama request failed: "
+                    f"{str(error)}"
+                )
+
+            except Exception as error:
+
+                logger.exception(
+
+                    f"Ollama error: "
+                    f"{str(error)}"
+                )
+
+            if attempt < (
+                self.MAX_RETRIES
+            ):
+
+                time.sleep(
+                    self.RETRY_DELAY
+                )
+
+        return (
+            "Ollama generation failed."
+        )
+
+    # =============================================
+    # STREAM GENERATE
+    # =============================================
+
+    def stream_generate(
+        self,
+        prompt,
+        **kwargs,
+    ):
 
         try:
 
-            logger.info(
+            payload = self.payload(
 
-                f"Generating Ollama response "
-                f"using model: {self.model}"
+                prompt,
+
+                **kwargs,
             )
+
+            payload["stream"] = True
 
             response = (
                 self.session.post(
 
                     self.endpoint(),
 
-                    json=self.payload(
-
-                        prompt,
-
-                        **kwargs,
-                    ),
+                    json=payload,
 
                     timeout=(
                         self.REQUEST_TIMEOUT
                     ),
+
+                    stream=True,
                 )
             )
 
             response.raise_for_status()
 
-            data = response.json()
+            final_text = ""
 
-            response_text = (
-                data.get(
-                    "response",
-                    ""
-                )
-            )
+            for line in (
+                response.iter_lines()
+            ):
 
-            response_text = (
-                self.clean_response(
-                    response_text
-                )
-            )
+                try:
 
-            if not response_text:
+                    if line:
 
-                logger.warning(
+                        decoded = (
+                            line.decode(
+                                "utf-8"
+                            )
+                        )
 
-                    "Ollama returned "
-                    "empty response."
-                )
+                        final_text += (
+                            decoded
+                        )
 
-                return (
+                except Exception:
 
-                    "Ollama returned "
-                    "empty response."
-                )
+                    continue
 
-            logger.info(
-                "Ollama generation successful."
-            )
-
-            return response_text
-
-        except Timeout:
-
-            logger.warning(
-                "Ollama request timed out."
-            )
-
-            return (
-                "Ollama generation failed: timeout"
-            )
-
-        except ConnectionError:
-
-            logger.warning(
-                "Ollama server unavailable."
-            )
-
-            return (
-                "Ollama generation failed: "
-                "server unavailable"
-            )
-
-        except RequestException as error:
-
-            logger.exception(
-
-                f"Ollama request failed: "
-                f"{str(error)}"
-            )
-
-            return (
-
-                f"Ollama generation failed: "
-                f"{str(error)}"
+            return self.clean_response(
+                final_text
             )
 
         except Exception as error:
 
             logger.exception(
 
-                f"Ollama unexpected error: "
+                f"Ollama stream failed: "
                 f"{str(error)}"
             )
 
             return (
-
-                f"Ollama generation failed: "
-                f"{str(error)}"
+                "Ollama stream failed."
             )
 
-    # ==================================================
+    # =============================================
     # AVAILABLE MODELS
-    # ==================================================
+    # =============================================
 
     def available_models(
         self
     ):
-
-        """
-        Return installed Ollama models.
-        """
 
         try:
 
@@ -315,17 +466,13 @@ class OllamaProvider(
 
             return []
 
-    # ==================================================
+    # =============================================
     # HEALTH CHECK
-    # ==================================================
+    # =============================================
 
     def health_check(
         self
     ):
-
-        """
-        Check Ollama availability.
-        """
 
         try:
 
@@ -348,53 +495,47 @@ class OllamaProvider(
 
             return False
 
-    # ==================================================
+    # =============================================
     # PROVIDER INFO
-    # ==================================================
+    # =============================================
 
     def provider_info(
         self
     ):
 
-        """
-        Return provider metadata.
-        """
-
         return {
 
-            "provider": (
-                self.provider_name
-            ),
+            "provider":
+            self.provider_name,
 
-            "model": (
-                self.model
-            ),
+            "model":
+            self.model,
 
-            "local": True,
+            "local":
+            True,
 
-            "healthy": (
-                self.health_check()
-            ),
+            "healthy":
+            self.health_check(),
 
-            "base_url": (
-                self.base_url
-            ),
+            "base_url":
+            self.base_url,
+
+            "max_retries":
+            self.MAX_RETRIES,
         }
 
-    # ==================================================
+    # =============================================
     # SWITCH MODEL
-    # ==================================================
+    # =============================================
 
     def switch_model(
         self,
         model,
     ):
 
-        """
-        Dynamically switch model.
-        """
-
-        self.model = model
+        self.model = str(
+            model
+        ).strip()
 
         logger.info(
 

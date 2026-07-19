@@ -47,6 +47,32 @@ class WeaknessDetector:
         "user experience",
     ]
 
+    MEDIA_SECTIONS = [
+
+        "infographic",
+
+        "video",
+
+        "chart",
+
+        "table",
+    ]
+
+    AI_OVERVIEW_SECTIONS = [
+
+        "summary",
+
+        "quick answer",
+
+        "key takeaways",
+
+        "faq",
+    ]
+
+    # ==================================================
+    # NORMALIZE SECTIONS
+    # ==================================================
+
     def normalize_sections(
         self,
         sections,
@@ -73,6 +99,10 @@ class WeaknessDetector:
 
         return normalized
 
+    # ==================================================
+    # SECTION EXISTS
+    # ==================================================
+
     def section_exists(
         self,
         target,
@@ -88,6 +118,10 @@ class WeaknessDetector:
         )
 
         return target in sections
+
+    # ==================================================
+    # ANY SECTION EXISTS
+    # ==================================================
 
     def any_section_exists(
         self,
@@ -111,6 +145,66 @@ class WeaknessDetector:
                 return True
 
         return False
+
+    # ==================================================
+    # WEAKNESS PRIORITY
+    # ==================================================
+
+    def calculate_weakness_priority(
+        self,
+        severity,
+    ):
+
+        """
+        Calculate weakness priority.
+        """
+
+        if severity >= 8:
+
+            return "critical"
+
+        if severity >= 5:
+
+            return "high"
+
+        if severity >= 3:
+
+            return "medium"
+
+        return "low"
+
+    # ==================================================
+    # BUILD WEAKNESS
+    # ==================================================
+
+    def build_weakness(
+        self,
+        weakness,
+        severity=5,
+    ):
+
+        """
+        Build structured weakness object.
+        """
+
+        priority = (
+            self.calculate_weakness_priority(
+                severity
+            )
+        )
+
+        return {
+
+            "weakness": weakness,
+
+            "severity": severity,
+
+            "priority": priority,
+        }
+
+    # ==================================================
+    # DETECT WEAKNESSES
+    # ==================================================
 
     def detect(
         self,
@@ -150,6 +244,13 @@ class WeaknessDetector:
             )
         )
 
+        heading_frequency = (
+            content_analysis.get(
+                "heading_frequency",
+                {}
+            )
+        )
+
         average_sections = (
             structure_analysis.get(
                 "average_sections",
@@ -177,7 +278,15 @@ class WeaknessDetector:
 
             weaknesses.append(
 
-                "Competitors have low average word count."
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitors have low "
+                        "average word count."
+                    ),
+
+                    severity=8,
+                )
             )
 
         # ==========================================
@@ -190,39 +299,67 @@ class WeaknessDetector:
 
             weaknesses.append(
 
-                "Competitor articles lack detailed structure."
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitor articles "
+                        "lack detailed structure."
+                    ),
+
+                    severity=7,
+                )
             )
 
         # ==========================================
         # FAQ WEAKNESS
         # ==========================================
 
-        if not self.section_exists(
+        faq_frequency = (
+            heading_frequency.get(
+                "faq",
+                0
+            )
+        )
 
-            "faq",
-
-            normalized_headings,
-        ):
+        if faq_frequency < 3:
 
             weaknesses.append(
 
-                "Most competitors are missing FAQ optimization."
+                self.build_weakness(
+
+                    weakness=(
+                        "Most competitors are "
+                        "missing FAQ optimization."
+                    ),
+
+                    severity=9,
+                )
             )
 
         # ==========================================
         # COMPARISON WEAKNESS
         # ==========================================
 
-        if not self.section_exists(
+        comparison_frequency = (
+            heading_frequency.get(
+                "comparison",
+                0
+            )
+        )
 
-            "comparison",
-
-            normalized_headings,
-        ):
+        if comparison_frequency < 3:
 
             weaknesses.append(
 
-                "Competitors lack detailed comparison sections."
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitors lack detailed "
+                        "comparison sections."
+                    ),
+
+                    severity=8,
+                )
             )
 
         # ==========================================
@@ -242,7 +379,15 @@ class WeaknessDetector:
 
             weaknesses.append(
 
-                "Buyer intent optimization is weak among competitors."
+                self.build_weakness(
+
+                    weakness=(
+                        "Buyer intent optimization "
+                        "is weak among competitors."
+                    ),
+
+                    severity=8,
+                )
             )
 
         # ==========================================
@@ -262,20 +407,169 @@ class WeaknessDetector:
 
             weaknesses.append(
 
-                "Competitors lack trust-building content sections."
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitors lack "
+                        "trust-building content."
+                    ),
+
+                    severity=9,
+                )
+            )
+
+        # ==========================================
+        # MEDIA CONTENT WEAKNESS
+        # ==========================================
+
+        media_found = (
+            self.any_section_exists(
+
+                self.MEDIA_SECTIONS,
+
+                normalized_headings,
+            )
+        )
+
+        if not media_found:
+
+            weaknesses.append(
+
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitors are missing "
+                        "media-rich content "
+                        "sections."
+                    ),
+
+                    severity=6,
+                )
+            )
+
+        # ==========================================
+        # AI OVERVIEW WEAKNESS
+        # ==========================================
+
+        ai_overview_found = (
+            self.any_section_exists(
+
+                self.AI_OVERVIEW_SECTIONS,
+
+                normalized_headings,
+            )
+        )
+
+        if not ai_overview_found:
+
+            weaknesses.append(
+
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitors are not "
+                        "optimized for AI overview "
+                        "summaries."
+                    ),
+
+                    severity=8,
+                )
+            )
+
+        # ==========================================
+        # FRESHNESS WEAKNESS
+        # ==========================================
+
+        current_year_found = (
+            self.section_exists(
+
+                "2026",
+
+                normalized_headings,
+            )
+        )
+
+        if not current_year_found:
+
+            weaknesses.append(
+
+                self.build_weakness(
+
+                    weakness=(
+                        "Competitor content lacks "
+                        "freshness optimization."
+                    ),
+
+                    severity=7,
+                )
             )
 
         # ==========================================
         # REMOVE DUPLICATES
         # ==========================================
 
-        unique_weaknesses = (
-            Helpers.unique_list(
-                weaknesses
-            )
-        )
+        unique_weaknesses = []
 
-        unique_weaknesses.sort()
+        seen = set()
+
+        for weakness in weaknesses:
+
+            weakness_name = (
+                weakness.get(
+                    "weakness",
+                    ""
+                )
+            )
+
+            if weakness_name in seen:
+
+                continue
+
+            seen.add(
+                weakness_name
+            )
+
+            unique_weaknesses.append(
+                weakness
+            )
+
+        # ==========================================
+        # SORT BY PRIORITY
+        # ==========================================
+
+        priority_order = {
+
+            "critical": 4,
+
+            "high": 3,
+
+            "medium": 2,
+
+            "low": 1,
+        }
+
+        unique_weaknesses.sort(
+
+            key=lambda x: (
+
+                priority_order.get(
+
+                    x.get(
+                        "priority",
+                        "low"
+                    ),
+
+                    1,
+                ),
+
+                x.get(
+                    "severity",
+                    0
+                ),
+            ),
+
+            reverse=True,
+        )
 
         # ==========================================
         # WEAKNESS SCORE

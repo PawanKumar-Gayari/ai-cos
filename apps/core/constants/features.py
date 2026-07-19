@@ -39,17 +39,17 @@ def env_bool(
 
 ENABLE_REDIS = env_bool(
     "ENABLE_REDIS",
-    False,
+    True,
 )
 
 ENABLE_CELERY = env_bool(
     "ENABLE_CELERY",
-    False,
+    True,
 )
 
 ENABLE_ASYNC_GENERATION = env_bool(
     "ENABLE_ASYNC_GENERATION",
-    False,
+    True,
 )
 
 

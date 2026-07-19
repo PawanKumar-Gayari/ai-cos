@@ -1,5 +1,6 @@
 """
 Base Django settings for ai_cos project.
+Production-grade optimized configuration.
 """
 
 from pathlib import Path
@@ -7,7 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import os
-
 
 from apps.core.constants.features import (
     ENABLE_REDIS,
@@ -90,6 +90,16 @@ ALLOWED_HOSTS = os.getenv(
 
 
 # ==================================================
+# AI COS API SECURITY
+# ==================================================
+
+AICOS_API_KEY = os.getenv(
+    "AICOS_API_KEY",
+    ""
+)
+
+
+# ==================================================
 # FEATURE FLAGS
 # ==================================================
 
@@ -125,23 +135,11 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
 
-    # ==========================================
-    # REST API
-    # ==========================================
-
     "rest_framework",
 
     "rest_framework.authtoken",
 
-    # ==========================================
-    # OPENAPI / DOCS
-    # ==========================================
-
     "drf_spectacular",
-
-    # ==========================================
-    # CORS
-    # ==========================================
 
     "corsheaders",
 ]
@@ -153,27 +151,11 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
 
-    # ==========================================
-    # CORE
-    # ==========================================
-
     "apps.core",
-
-    # ==========================================
-    # API
-    # ==========================================
 
     "apps.api",
 
-    # ==========================================
-    # MEMORY
-    # ==========================================
-
     "apps.memory",
-
-    # ==========================================
-    # ENGINE
-    # ==========================================
 
     "apps.engine",
 
@@ -187,19 +169,11 @@ LOCAL_APPS = [
 
     "apps.decision_engine",
 
-    # ==========================================
-    # SEO SYSTEMS
-    # ==========================================
-
     "apps.keywords",
 
     "apps.competitor",
 
     "apps.publisher",
-
-    # ==========================================
-    # ANALYTICS
-    # ==========================================
 
     "apps.analytics",
 
@@ -208,6 +182,8 @@ LOCAL_APPS = [
     "apps.history",
 
     "apps.llm",
+
+    "apps.dashboard",
 ]
 
 
@@ -231,53 +207,41 @@ INSTALLED_APPS = (
 
 MIDDLEWARE = [
 
-    # ==========================================
-    # SECURITY
-    # ==========================================
-
     "django.middleware.security.SecurityMiddleware",
-
-    # ==========================================
-    # CORS
-    # ==========================================
 
     "corsheaders.middleware.CorsMiddleware",
 
-    # ==========================================
-    # SESSIONS
-    # ==========================================
-
     "django.contrib.sessions.middleware.SessionMiddleware",
-
-    # ==========================================
-    # COMMON
-    # ==========================================
 
     "django.middleware.common.CommonMiddleware",
 
-    # ==========================================
-    # CSRF
-    # ==========================================
-
     "django.middleware.csrf.CsrfViewMiddleware",
-
-    # ==========================================
-    # AUTH
-    # ==========================================
 
     "django.contrib.auth.middleware.AuthenticationMiddleware",
 
-    # ==========================================
-    # MESSAGES
-    # ==========================================
-
     "django.contrib.messages.middleware.MessageMiddleware",
 
-    # ==========================================
-    # CLICKJACKING
-    # ==========================================
-
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    # ==============================================
+    # DASHBOARD AUTH
+    # ==============================================
+
+    "apps.core.middleware.dashboard_auth.DashboardLoginRequiredMiddleware",
+
+    # ==============================================
+    # API SECURITY
+    # ==============================================
+
+    "apps.core.middleware.api_auth.APIKeyMiddleware",
+
+    # ==============================================
+    # MONITORING
+    # ==============================================
+
+    "apps.monitoring.middleware.request_logging.RequestLoggingMiddleware",
+
+    "apps.monitoring.middleware.error_logging.ErrorLoggingMiddleware",
 ]
 
 
@@ -343,16 +307,12 @@ DATABASES = {
     "default": {
 
         "ENGINE": os.getenv(
-
             "DB_ENGINE",
-
             "django.db.backends.sqlite3",
         ),
 
         "NAME": os.getenv(
-
             "DB_NAME",
-
             BASE_DIR / "db.sqlite3",
         ),
 
@@ -522,9 +482,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = (
 
 REST_FRAMEWORK = {
 
-    # ==========================================
+    # ==============================================
     # RENDERERS
-    # ==========================================
+    # ==============================================
 
     "DEFAULT_RENDERER_CLASSES": [
 
@@ -533,9 +493,9 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
 
-    # ==========================================
+    # ==============================================
     # PARSERS
-    # ==========================================
+    # ==============================================
 
     "DEFAULT_PARSER_CLASSES": [
 
@@ -546,24 +506,37 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
     ],
 
-    # ==========================================
-    # AUTH
-    # ==========================================
+    # ==============================================
+    # AUTHENTICATION
+    # ==============================================
 
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
 
-    # ==========================================
+        # TOKEN AUTH
+
+        "rest_framework.authentication.TokenAuthentication",
+
+        # SESSION AUTH
+
+        "rest_framework.authentication.SessionAuthentication",
+
+        # BASIC AUTH
+
+        "rest_framework.authentication.BasicAuthentication",
+    ],
+
+    # ==============================================
     # PERMISSIONS
-    # ==========================================
+    # ==============================================
 
     "DEFAULT_PERMISSION_CLASSES": [
 
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
 
-    # ==========================================
+    # ==============================================
     # THROTTLING
-    # ==========================================
+    # ==============================================
 
     "DEFAULT_THROTTLE_CLASSES": [
 
@@ -572,16 +545,20 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
 
+    # ==============================================
+    # THROTTLE RATES
+    # ==============================================
+
     "DEFAULT_THROTTLE_RATES": {
 
-        "anon": "30/min",
+        "anon": "20/min",
 
-        "user": "200/min",
+        "user": "300/min",
     },
 
-    # ==========================================
+    # ==============================================
     # PAGINATION
-    # ==========================================
+    # ==============================================
 
     "DEFAULT_PAGINATION_CLASS": (
         "rest_framework.pagination.PageNumberPagination"
@@ -589,31 +566,13 @@ REST_FRAMEWORK = {
 
     "PAGE_SIZE": 10,
 
-    # ==========================================
-    # SCHEMA
-    # ==========================================
+    # ==============================================
+    # OPENAPI
+    # ==============================================
 
     "DEFAULT_SCHEMA_CLASS": (
         "drf_spectacular.openapi.AutoSchema"
     ),
-}
-
-
-# ==================================================
-# OPENAPI
-# ==================================================
-
-SPECTACULAR_SETTINGS = {
-
-    "TITLE": "AI COS API",
-
-    "DESCRIPTION": (
-        "AI Content Operating System"
-    ),
-
-    "VERSION": "2.0.0",
-
-    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 
@@ -677,21 +636,6 @@ LOGGING = {
         },
     },
 
-    "loggers": {
-
-        "django.request": {
-
-            "handlers": [
-                "console",
-                "file",
-            ],
-
-            "level": "WARNING",
-
-            "propagate": False,
-        },
-    },
-
     "root": {
 
         "handlers": [
@@ -725,131 +669,6 @@ if ENABLE_CELERY:
 
         REDIS_URL,
     )
-
-    CELERY_ACCEPT_CONTENT = [
-        "json",
-    ]
-
-    CELERY_TASK_SERIALIZER = (
-        "json"
-    )
-
-    CELERY_RESULT_SERIALIZER = (
-        "json"
-    )
-
-    CELERY_TIMEZONE = TIME_ZONE
-
-    CELERY_ENABLE_UTC = True
-
-    CELERY_TASK_TRACK_STARTED = True
-
-    CELERY_TASK_TIME_LIMIT = (
-        30 * 60
-    )
-
-    CELERY_TASK_SOFT_TIME_LIMIT = (
-        25 * 60
-    )
-
-    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-
-    CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-
-    CELERY_TASK_ACKS_LATE = True
-
-    CELERY_WORKER_CONCURRENCY = int(
-
-        os.getenv(
-            "CELERY_WORKER_CONCURRENCY",
-            2,
-        )
-    )
-
-    CELERY_TASK_DEFAULT_QUEUE = (
-        "default"
-    )
-
-    CELERY_TASK_ROUTES = {
-
-        "apps.generator.tasks.*": {
-
-            "queue": "generation",
-        },
-
-        "apps.memory.tasks.*": {
-
-            "queue": "memory",
-        },
-    }
-
-    CELERY_BEAT_SCHEDULE = {
-
-        "memory-health-check": {
-
-            "task": (
-                "apps.memory.tasks.health_check"
-            ),
-
-            "schedule": 300.0,
-        },
-    }
-
-
-# ==================================================
-# AI PROVIDERS
-# ==================================================
-
-AI_PROVIDERS = {
-
-    "openai": {
-
-        "api_key": os.getenv(
-            "OPENAI_API_KEY"
-        ),
-    },
-
-    "gemini": {
-
-        "api_key": os.getenv(
-            "GEMINI_API_KEY"
-        ),
-    },
-}
-
-
-# ==================================================
-# AI CONFIG
-# ==================================================
-
-MAX_REWRITE_LOOPS = int(
-    os.getenv(
-        "MAX_REWRITE_LOOPS",
-        3,
-    )
-)
-
-TARGET_REWRITE_SCORE = int(
-    os.getenv(
-        "TARGET_REWRITE_SCORE",
-        85,
-    )
-)
-
-REQUEST_TIMEOUT = 60
-
-AI_PROVIDER_TIMEOUT = 120
-
-
-# ==================================================
-# MEMORY CONFIG
-# ==================================================
-
-MEMORY_TOP_K = 5
-
-MEMORY_SIMILARITY_THRESHOLD = 0.75
-
-ENABLE_MEMORY = True
 
 
 # ==================================================
@@ -894,9 +713,84 @@ API_TIMEOUT = 60
 
 
 # ==================================================
+# SEARCH API KEYS
+# ==================================================
+
+SERPAPI_KEY = os.getenv(
+    "SERPAPI_KEY",
+    ""
+)
+
+GOOGLE_CSE_API_KEY = os.getenv(
+    "GOOGLE_CSE_API_KEY",
+    ""
+)
+
+GOOGLE_CSE_ID = os.getenv(
+    "GOOGLE_CSE_ID",
+    ""
+)
+
+BRAVE_API_KEY = os.getenv(
+    "BRAVE_API_KEY",
+    ""
+)
+
+SERPER_API_KEY = os.getenv(
+    "SERPER_API_KEY",
+    ""
+)
+
+TAVILY_API_KEY = os.getenv(
+    "TAVILY_API_KEY",
+    ""
+)
+
+
+# ==================================================
 # DEFAULT PRIMARY KEY
 # ==================================================
 
 DEFAULT_AUTO_FIELD = (
     "django.db.models.BigAutoField"
+)
+
+
+# ==================================================
+# AUTH REDIRECTS
+# ==================================================
+
+LOGIN_URL = "/login/"
+
+LOGIN_REDIRECT_URL = "/dashboard/"
+
+LOGOUT_REDIRECT_URL = "/login/"
+
+
+# ==================================================
+# EMAIL CONFIG
+# ==================================================
+
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+)
+
+EMAIL_HOST = "smtp.gmail.com"
+
+EMAIL_PORT = 587
+
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER"
+)
+
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD"
+)
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+CONTACT_EMAIL = os.getenv(
+    "CONTACT_EMAIL"
 )

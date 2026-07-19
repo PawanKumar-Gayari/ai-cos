@@ -21,10 +21,83 @@ from utils.logger import (
 
 class KeywordCluster:
 
+    # =========================
+    # CLUSTER IGNORE WORDS
+    # =========================
+
+    IGNORE_WORDS = {
+
+        "best",
+
+        "top",
+
+        "cheap",
+
+        "free",
+
+        "professional",
+
+        "guide",
+
+        "tutorial",
+
+        "review",
+
+        "comparison",
+
+        "alternatives",
+
+        "tips",
+
+        "strategy",
+    }
+
+    def _extract_topic(
+        self,
+        keyword
+    ):
+
+        words = keyword.split()
+
+        if not words:
+
+            return "general"
+
+        # =========================
+        # FIND FIRST VALID TOPIC
+        # =========================
+
+        for word in words:
+
+            if word not in (
+                self.IGNORE_WORDS
+            ):
+
+                return word
+
+        return words[0]
+
     def cluster(
         self,
         keywords
     ):
+
+        # =========================
+        # VALIDATE INPUT
+        # =========================
+
+        if not keywords:
+
+            logger.warning(
+                "No keywords received for clustering"
+            )
+
+            return {
+
+                "total_clusters": 0,
+
+                "clusters": [],
+            }
 
         logger.info(
 
@@ -44,61 +117,74 @@ class KeywordCluster:
 
         for keyword in keywords:
 
-            # =====================
-            # SKIP EMPTY
-            # =====================
+            try:
 
-            if not keyword:
+                # =====================
+                # SKIP EMPTY
+                # =====================
 
-                continue
+                if not keyword:
 
-            # =====================
-            # NORMALIZE KEYWORD
-            # =====================
+                    continue
 
-            keyword = (
-                KeywordNormalizer.normalize(
-                    keyword
+                # =====================
+                # NORMALIZE KEYWORD
+                # =====================
+
+                keyword = (
+                    KeywordNormalizer.normalize(
+                        keyword
+                    )
                 )
-            )
 
-            # =====================
-            # SPLIT WORDS
-            # =====================
+                # =====================
+                # SKIP INVALID
+                # =====================
 
-            words = keyword.split()
+                if not keyword:
 
-            # =====================
-            # SKIP INVALID
-            # =====================
+                    continue
 
-            if not words:
+                # =====================
+                # EXTRACT TOPIC
+                # =====================
 
-                continue
+                main_topic = (
+                    self._extract_topic(
+                        keyword
+                    )
+                )
 
-            # =====================
-            # MAIN TOPIC
-            # =====================
+                # =====================
+                # CREATE CLUSTER
+                # =====================
 
-            main_topic = words[0]
+                if main_topic not in clusters:
 
-            # =====================
-            # CREATE CLUSTER
-            # =====================
+                    clusters[
+                        main_topic
+                    ] = []
 
-            if main_topic not in clusters:
+                # =====================
+                # ADD KEYWORD
+                # =====================
 
                 clusters[
                     main_topic
-                ] = []
+                ].append(
+                    keyword
+                )
 
-            # =====================
-            # ADD KEYWORD
-            # =====================
+            except Exception as error:
 
-            clusters[
-                main_topic
-            ].append(keyword)
+                logger.warning(
+
+                    f"Failed to cluster keyword: "
+                    f"{keyword} | "
+                    f"{str(error)}"
+                )
+
+                continue
 
         # =========================
         # BUILD FINAL DATA
@@ -141,7 +227,10 @@ class KeywordCluster:
             cluster_score = (
                 ScoringHelpers.normalize_score(
 
-                    cluster_size * 15
+                    min(
+                        cluster_size * 15,
+                        100
+                    )
                 )
             )
 
@@ -186,9 +275,12 @@ class KeywordCluster:
 
         cluster_data.sort(
 
-            key=lambda item: item[
-                "total_keywords"
-            ],
+            key=lambda item: (
+
+                item["total_keywords"],
+
+                item["cluster_score"]
+            ),
 
             reverse=True
         )

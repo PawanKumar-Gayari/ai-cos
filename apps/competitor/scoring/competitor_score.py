@@ -17,6 +17,10 @@ from utils.config import (
 
 class CompetitorScore:
 
+    # ==================================================
+    # CONTENT SCORE
+    # ==================================================
+
     def calculate_content_score(
         self,
         average_word_count,
@@ -43,6 +47,10 @@ class CompetitorScore:
             return 60
 
         return 40
+
+    # ==================================================
+    # STRUCTURE SCORE
+    # ==================================================
 
     def calculate_structure_score(
         self,
@@ -71,6 +79,163 @@ class CompetitorScore:
 
         return 40
 
+    # ==================================================
+    # INTENT SCORE
+    # ==================================================
+
+    def calculate_intent_score(
+        self,
+        intent_analysis,
+    ):
+
+        """
+        Score keyword intent competitiveness.
+        """
+
+        primary_intent = (
+            intent_analysis.get(
+                "primary_intent",
+                "informational"
+            )
+        )
+
+        if primary_intent == "transactional":
+
+            return 90
+
+        if primary_intent == "commercial":
+
+            return 80
+
+        if primary_intent == "news":
+
+            return 75
+
+        return 65
+
+    # ==================================================
+    # FREQUENCY SCORE
+    # ==================================================
+
+    def calculate_frequency_score(
+        self,
+        heading_frequency,
+    ):
+
+        """
+        Score SERP heading competition.
+        """
+
+        total_frequency = sum(
+            heading_frequency.values()
+        )
+
+        if total_frequency >= 50:
+
+            return 95
+
+        if total_frequency >= 35:
+
+            return 85
+
+        if total_frequency >= 20:
+
+            return 70
+
+        if total_frequency >= 10:
+
+            return 55
+
+        return 40
+
+    # ==================================================
+    # GAP PRIORITY SCORE
+    # ==================================================
+
+    def calculate_gap_priority_score(
+        self,
+        content_gaps,
+    ):
+
+        """
+        Score SEO opportunity gaps.
+        """
+
+        critical = 0
+
+        high = 0
+
+        medium = 0
+
+        low = 0
+
+        for gap in content_gaps:
+
+            priority = gap.get(
+                "priority",
+                "low"
+            )
+
+            if priority == "critical":
+
+                critical += 1
+
+            elif priority == "high":
+
+                high += 1
+
+            elif priority == "medium":
+
+                medium += 1
+
+            else:
+
+                low += 1
+
+        score = (
+
+            critical * 25
+            + high * 15
+            + medium * 8
+            + low * 3
+        )
+
+        return ScoringHelpers.normalize_score(
+            score
+        )
+
+    # ==================================================
+    # WEAKNESS SEVERITY SCORE
+    # ==================================================
+
+    def calculate_weakness_severity_score(
+        self,
+        weaknesses,
+    ):
+
+        """
+        Score competitor weaknesses.
+        """
+
+        total_severity = 0
+
+        for weakness in weaknesses:
+
+            total_severity += (
+                weakness.get(
+                    "severity",
+                    0
+                )
+            )
+
+        return ScoringHelpers.normalize_score(
+            total_severity * 5
+        )
+
+    # ==================================================
+    # COMPETITION LEVEL
+    # ==================================================
+
     def determine_competition_level(
         self,
         final_score,
@@ -94,6 +259,10 @@ class CompetitorScore:
 
         return "low"
 
+    # ==================================================
+    # SEO OPPORTUNITY
+    # ==================================================
+
     def determine_seo_opportunity(
         self,
         competition_level,
@@ -113,6 +282,10 @@ class CompetitorScore:
 
         return "difficult"
 
+    # ==================================================
+    # CONFIDENCE
+    # ==================================================
+
     def determine_confidence(
         self,
         final_score,
@@ -131,6 +304,10 @@ class CompetitorScore:
             return "medium"
 
         return "low"
+
+    # ==================================================
+    # SCORE GRADE
+    # ==================================================
 
     def determine_grade(
         self,
@@ -159,12 +336,17 @@ class CompetitorScore:
 
         return "F"
 
+    # ==================================================
+    # MAIN SCORE CALCULATION
+    # ==================================================
+
     def calculate(
         self,
         content_analysis,
         structure_analysis,
         gap_analysis,
         weakness_analysis,
+        intent_analysis=None,
     ):
 
         """
@@ -186,6 +368,13 @@ class CompetitorScore:
             )
         )
 
+        heading_frequency = (
+            content_analysis.get(
+                "heading_frequency",
+                {}
+            )
+        )
+
         average_sections = (
             structure_analysis.get(
                 "average_sections",
@@ -193,17 +382,17 @@ class CompetitorScore:
             )
         )
 
-        gap_score = (
+        content_gaps = (
             gap_analysis.get(
-                "gap_score",
-                0
+                "content_gaps",
+                []
             )
         )
 
-        weakness_score = (
+        weaknesses = (
             weakness_analysis.get(
-                "weakness_score",
-                0
+                "weaknesses",
+                []
             )
         )
 
@@ -223,13 +412,33 @@ class CompetitorScore:
             )
         )
 
-        gap_opportunity_score = (
-            max(0, 100 - gap_score)
+        frequency_score = (
+            self.calculate_frequency_score(
+                heading_frequency
+            )
         )
 
-        weakness_resistance_score = (
-            max(0, 100 - weakness_score)
+        gap_priority_score = (
+            self.calculate_gap_priority_score(
+                content_gaps
+            )
         )
+
+        weakness_severity_score = (
+            self.calculate_weakness_severity_score(
+                weaknesses
+            )
+        )
+
+        intent_score = 70
+
+        if intent_analysis:
+
+            intent_score = (
+                self.calculate_intent_score(
+                    intent_analysis
+                )
+            )
 
         # ==========================================
         # WEIGHTED SCORE
@@ -242,28 +451,42 @@ class CompetitorScore:
                     "score": (
                         content_score
                     ),
-                    "weight": 0.40,
+                    "weight": 0.25,
                 },
 
                 {
                     "score": (
                         structure_score
                     ),
-                    "weight": 0.30,
+                    "weight": 0.20,
                 },
 
                 {
                     "score": (
-                        gap_opportunity_score
+                        frequency_score
                     ),
                     "weight": 0.15,
                 },
 
                 {
                     "score": (
-                        weakness_resistance_score
+                        gap_priority_score
                     ),
                     "weight": 0.15,
+                },
+
+                {
+                    "score": (
+                        weakness_severity_score
+                    ),
+                    "weight": 0.15,
+                },
+
+                {
+                    "score": (
+                        intent_score
+                    ),
+                    "weight": 0.10,
                 },
             ])
         )
@@ -320,12 +543,20 @@ class CompetitorScore:
                 structure_score
             ),
 
-            "gap_opportunity_score": (
-                gap_opportunity_score
+            "frequency_score": (
+                frequency_score
             ),
 
-            "weakness_resistance_score": (
-                weakness_resistance_score
+            "gap_priority_score": (
+                gap_priority_score
+            ),
+
+            "weakness_severity_score": (
+                weakness_severity_score
+            ),
+
+            "intent_score": (
+                intent_score
             ),
         }
 

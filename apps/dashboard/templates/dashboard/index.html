@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        AI COS Dashboard
+    </title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+
+<body class="bg-gray-100 min-h-screen text-gray-800">
+
+<!-- MAIN CONTAINER -->
+
+<div class="max-w-7xl mx-auto p-6">
+
+    <!-- TOP HEADER -->
+
+    <div class="flex items-center justify-between mb-10">
+
+        <div>
+
+            <h1 class="text-5xl font-bold">
+                AI COS Dashboard
+            </h1>
+
+            <p class="text-gray-500 mt-2 text-lg">
+                Centralized AI Control System
+            </p>
+
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border px-5 py-3">
+
+            <p class="text-sm text-gray-500">
+                System Status
+            </p>
+
+            <p class="text-green-600 font-bold text-lg">
+                Online
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- SYSTEM STATS -->
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        <!-- CPU -->
+
+        <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <p class="text-gray-500 text-sm">
+                        CPU Usage
+                    </p>
+
+                    <h2 class="text-5xl font-bold mt-4">
+
+                        {{ stats.cpu }}%
+
+                    </h2>
+
+                </div>
+
+                <div class="text-5xl">
+                    ⚡
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- RAM -->
+
+        <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <p class="text-gray-500 text-sm">
+                        RAM Usage
+                    </p>
+
+                    <h2 class="text-5xl font-bold mt-4">
+
+                        {{ stats.ram }}%
+
+                    </h2>
+
+                </div>
+
+                <div class="text-5xl">
+                    🧠
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- QUEUE -->
+
+        <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <p class="text-gray-500 text-sm">
+                        Queue Status
+                    </p>
+
+                    <h2 class="text-4xl font-bold mt-4 text-green-600">
+
+                        {{ stats.queue }}
+
+                    </h2>
+
+                </div>
+
+                <div class="text-5xl">
+                    📦
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- PROVIDER -->
+
+        <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <p class="text-gray-500 text-sm">
+                        AI Provider
+                    </p>
+
+                    <h2 class="text-4xl font-bold mt-4 text-blue-600">
+
+                        {{ stats.provider }}
+
+                    </h2>
+
+                </div>
+
+                <div class="text-5xl">
+                    🤖
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- FEATURES SECTION -->
+
+    <div class="mt-12">
+
+        <div class="flex items-center justify-between mb-6">
+
+            <h2 class="text-3xl font-bold">
+                AI Features
+            </h2>
+
+            <p class="text-gray-500">
+                Engine Controls
+            </p>
+
+        </div>
+
+        <!-- FEATURES GRID -->
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+
+            {% for feature in features %}
+
+            <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+                <div class="flex items-start justify-between">
+
+                    <div>
+
+                        <h3 class="text-xl font-semibold capitalize">
+
+                            {{ feature.key|cut:"_enabled" }}
+
+                        </h3>
+
+                        <p class="text-gray-500 text-sm mt-2">
+                            AI engine controller
+                        </p>
+
+                    </div>
+
+                    {% if feature.enabled %}
+
+                    <span class="px-4 py-2 rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                        ON
+                    </span>
+
+                    {% else %}
+
+                    <span class="px-4 py-2 rounded-full bg-red-100 text-red-700 text-sm font-bold">
+                        OFF
+                    </span>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        AI COS Generator
+    </title>
+
+    <meta
+        name="description"
+        content="AI COS Professional Content Generator Dashboard"
+    >
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+
+<body class="bg-gray-100 text-gray-900 min-h-screen">
+
+<!-- SIDEBAR -->
+
+{% include "dashboard/partials/sidebar.html" %}
+
+<!-- MAIN -->
+
+<div class="lg:ml-64 min-h-screen">
+
+    <!-- TOPBAR -->
+
+    <div class="sticky top-0 z-30 bg-gray-100/95 backdrop-blur border-b border-gray-200">
+
+        <div class="px-4 sm:px-6 py-4">
+
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
+                <!-- LEFT -->
+
+                <div class="mt-16 lg:mt-0">
+
+                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight">
+
+                        AI Generator
+
+                    </h1>
+
+                    <p class="text-gray-500 mt-1 text-sm">
+
+                        Generate intelligent SEO-ready content using AI COS.
+
+                    </p>
+
+                </div>
+
+                <!-- STATUS -->
+
+                <div class="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2 shadow-sm">
+
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+
+                    <span class="text-xs font-bold text-green-700">
+
+                        Generator Online
+
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CONTENT -->
+
+    <div class="p-4 sm:p-5">
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+            <!-- LEFT PANEL -->
+
+            <div class="xl:col-span-1 space-y-5">
+
+                <!-- GENERATOR FORM -->
+
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+
+                    <div class="mb-5">
+
+                        <h2 class="text-lg font-black">
+
+                            Generate Article
+
+                        </h2>
+
+                        <p class="text-gray-500 text-xs mt-1">
+
+                            Create SEO-friendly content instantly.
+
+                        </p>
+
+                    </div>
+
+                    <form
+                        id="generator-form"
+                        class="space-y-4"
+                    >
+
+                        <!-- TOPIC -->
+
+                        <div>
+
+                            <label class="block text-xs font-bold text-gray-700 mb-2">
+
+                                Article Topic
+
+                            </label>
+
+                            <input
+                                type="text"
+                                id="query"
+                                placeholder="Enter topic or keyword..."
+                                class="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                                required
+                            >
+
+                        </div>
+
+                        <!-- PROVIDER -->
+
+                        <div>
+
+                            <label class="block text-xs font-bold text-gray-700 mb-2">
+
+                                AI Provider
+
+                            </label>
+
+                            <select
+                                id="provider"
+                                class="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                            >
+
+                                <option value="gemini">
+
+                                    Gemini
+
+                                </option>
+
+                                <option value="ollama">
+
+                                    Ollama
+
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- LENGTH -->
+
+                        <div>
+
+                            <label class="block text-xs font-bold text-gray-700 mb-2">
+
+                                Content Length
+
+                            </label>
+
+                            <select
+                                id="length"
+                                class="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                            >
+
+                                <option value="short">
+
+                                    Short
+
+                                </option>
+
+                                <option value="medium">
+
+                                    Medium
+
+                                </option>
+
+                                <option value="long">
+
+                                    Long
+
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- BUTTON -->
+
+                        <button
+                            type="submit"
+                            id="generate-btn"
+                            class="w-full bg-black text-white py-3 rounded-xl text-sm font-bold hover:bg-gray-900 transition"
+                        >
+
+                            Generate Content
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+                <!-- STATUS -->
+
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+
+                    <div class="flex items-center justify-between">
+
+                        <div>
+
+                            <h2 class="text-lg font-black">
+
+                                Queue Status
+
+                            </h2>
+
+                            <p class="text-gray-500 text-xs mt-1">
+
+                                AI task processing
+
+                            </p>
+
+                        </div>
+
+                        <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+
+                    </div>
+
+                    <div class="mt-5 space-y-3 text-sm">
+
+                        <div class="flex items-center justify-between">
+
+                            <span class="text-gray-500">
+
+                                Celery
+
+                            </span>
+
+                            <span class="font-bold text-green-600">
+
+                                Active
+
+                            </span>
+
+                        </div>
+
+                        <div class="flex items-center justify-between">
+
+                            <span class="text-gray-500">
+
+                                Redis
+
+                            </span>
+
+                            <span class="font-bold text-green-600">
+
+                                Connected
+
+                            </span>
+
+                        </div>
+
+                        <div class="flex items-center justify-between">
+
+                            <span class="text-gray-500">
+
+                                Provider
+
+                            </span>
+
+                            <span class="font-bold text-purple-600">
+
+                                Gemini
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- RIGHT PANEL -->
+
+            <div class="xl:col-span-2">
+
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 min-h-[520px]">
+
+                    <!-- HEADER -->
+
+                    <div class="flex items-center justify-between mb-5">
+
+                        <div>
+
+                            <h2 class="text-xl font-black">
+
+                                Generated Content
+
+                            </h2>
+
+                            <p class="text-gray-500 text-xs mt-1">
+
+                                AI-generated article preview
+
+                            </p>
+
+                        </div>
+
+                        <div class="flex items-center gap-2">
+
+                            <button
+                                id="copy-btn"
+                                class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition"
+                            >
+
+                                Copy
+
+                            </button>
+
+                            <button
+                                class="bg-black text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-900 transition"
+                            >
+
+                                Publish
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <!-- LOADING -->
+
+                    <div
+                        id="loading"
+                        class="hidden"
+                    >
+
+                        <div class="flex flex-col items-center justify-center py-16">
+
+                            <div class="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+
+                            <p class="mt-5 text-sm text-gray-500 font-medium">
+
+                                AI is generating your content...
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                    <!-- RESULT -->
+
+                    <div
+                        id="result"
+                        class="prose prose-sm max-w-none"
+                    >
+
+                        <div class="flex flex-col items-center justify-center py-20 text-center">
+
+                            <div class="text-5xl">
+
+                                🤖
+
+                            </div>
+
+                            <h3 class="text-xl font-black mt-5">
+
+                                Ready to Generate
+
+                            </h3>
+
+                            <p class="text-gray-500 mt-3 max-w-md text-sm">
+
+                                Enter your topic and generate professional AI-powered content instantly.
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- SCRIPT -->
+
+<script>
+
+document.getElementById(
+
+    "generator-form"
+
+).addEventListener(
+
+    "submit",
+
+    async function(event) {
+
+        event.preventDefault();
+
+        const query = document.getElementById(
+            "query"
+        ).value;
+
+        const loading = document.getElementById(
+            "loading"
+        );
+
+        const result = document.getElementById(
+            "result"
+        );
+
+        const button = document.getElementById(
+            "generate-btn"
+        );
+
+        loading.classList.remove(
+            "hidden"
+        );
+
+        result.innerHTML = "";
+
+        button.disabled = true;
+
+        button.innerText = (
+            "Generating..."
+        );
+
+        try {
+
+            const response = await fetch(
+
+                "/api/v1/generator/article/",
+
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type": "application/json",
+
+                        "X-API-KEY": "Pawan9001672014@",
+                    },
+
+                    body: JSON.stringify({
+
+                        query: query,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            loading.classList.add(
+                "hidden"
+            );
+
+            if (data.success) {
+
+                result.innerHTML = `
+
+                    <div class="bg-green-50 border border-green-200 rounded-2xl p-4">
+
+                        <h3 class="text-lg font-black text-green-700">
+
+                            Task Queued Successfully
+
+                        </h3>
+
+                        <p class="mt-2 text-sm text-gray-600">
+
+                            Task ID:
+
+                            <span class="font-mono text-xs">
+
+                                ${data.task_id}
+
+                            </span>
+
+                        </p>
+
+                    </div>
+                `;
+
+            } else {
+
+                result.innerHTML = `
+
+                    <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+
+                        <h3 class="text-lg font-black text-red-700">
+
+                            Generation Failed
+
+                        </h3>
+
+                        <p class="mt-2 text-sm text-gray-600">
+
+                            ${data.message || "Unknown error."}
+
+                        </p>
+
+                    </div>
+                `;
+            }
+
+        } catch (error) {
+
+            loading.classList.add(
+                "hidden"
+            );
+
+            result.innerHTML = `
+
+                <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+
+                    <h3 class="text-lg font-black text-red-700">
+
+                        Server Error
+
+                    </h3>
+
+                    <p class="mt-2 text-sm text-gray-600">
+
+                        ${error}
+
+                    </p>
+
+                </div>
+            `;
+        }
+
+        button.disabled = false;
+
+        button.innerText = (
+            "Generate Content"
+        );
+    }
+);
+
+</script>
+
+</body>
+
+</html>

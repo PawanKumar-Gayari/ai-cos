@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ page_title|default:'Publisher' }}
+    </title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+
+        body {
+
+            background: #f5f7fb;
+
+            font-family:
+                Inter,
+                sans-serif;
+        }
+
+        .card {
+
+            background: white;
+
+            border-radius: 24px;
+
+            border: 1px solid #e5e7eb;
+
+            box-shadow:
+                0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .input {
+
+            width: 100%;
+
+            border-radius: 16px;
+
+            border: 1px solid #d1d5db;
+
+            background: #f9fafb;
+
+            padding:
+                14px 16px;
+
+            outline: none;
+
+            transition:
+                all 0.2s ease;
+        }
+
+        .input:focus {
+
+            border-color: #2563eb;
+
+            background: white;
+        }
+
+        .btn {
+
+            background: #111827;
+
+            color: white;
+
+            border-radius: 16px;
+
+            padding:
+                12px 22px;
+
+            font-weight: 600;
+
+            transition:
+                all 0.2s ease;
+        }
+
+        .btn:hover {
+
+            background: black;
+        }
+
+    </style>
+</head>
+
+<body class="text-gray-900">
+
+<!-- ===================================================== -->
+<!-- SIDEBAR -->
+<!-- ===================================================== -->
+
+{% include "dashboard/partials/sidebar.html" %}
+
+<!-- ===================================================== -->
+<!-- MAIN -->
+<!-- ===================================================== -->
+
+<div class="lg:ml-72 min-h-screen">
+
+    <!-- ================================================= -->
+    <!-- TOPBAR -->
+    <!-- ================================================= -->
+
+    <header class="
+        bg-white
+        border-b border-gray-200
+    ">
+
+        <div class="
+            px-6 py-5
+            flex items-center justify-between
+        ">
+
+            <div>
+
+                <h1 class="
+                    text-2xl font-bold
+                ">
+                    Publisher
+                </h1>
+
+                <p class="
+                    text-sm text-gray-500
+                ">
+                    AI article publishing
+                </p>
+            </div>
+
+            <button
+                onclick="window.location.reload()"
+                class="btn"
+            >
+                Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- ================================================= -->
+    <!-- CONTENT -->
+    <!-- ================================================= -->
+
+    <main class="
+        p-6
+    ">
+
+        <!-- ============================================= -->
+        <!-- STATS -->
+        <!-- ============================================= -->
+
+        <div class="
+            grid grid-cols-2
+            xl:grid-cols-4
+            gap-4 mb-6
+        ">
+
+            <div class="
+                card p-5
+            ">
+
+                <p class="
+                    text-sm text-gray-500 mb-2
+                ">
+                    Articles
+                </p>
+
+                <h3 class="
+                    text-3xl font-bold
+                ">
+                    {{ stats.total_generated|default:0 }}
+                </h3>
+            </div>
+
+            <div class="
+                card p-5
+            ">
+
+                <p class="
+                    text-sm text-gray-500 mb-2
+                ">
+                    Published
+                </p>
+
+                <h3 class="
+                    text-3xl font-bold
+                ">
+                    {{ stats.total_published|default:0 }}
+                </h3>
+            </div>
+
+            <div class="
+                card p-5
+            ">
+
+                <p class="
+                    text-sm text-gray-500 mb-2
+                ">
+                    Provider
+                </p>
+
+                <h3 class="
+                    text-xl font-bold text-blue-600
+                ">
+                    {{ stats.active_provider }}
+                </h3>
+            </div>
+
+            <div class="
+                card p-5
+            ">
+
+                <p class="
+                    text-sm text-gray-500 mb-2
+                ">
+                    Queue
+                </p>
+
+                <h3 class="
+                    text-xl font-bold text-emerald-600
+                ">
+                    {{ stats.queue_status }}
+                </h3>
+            </div>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- GRID -->
+        <!-- ============================================= -->
+
+        <div class="
+            grid grid-cols-1
+            xl:grid-cols-3
+            gap-6
+        ">
+
+            <!-- ========================================= -->
+            <!-- FORM -->
+            <!-- ========================================= -->
+
+            <div class="
+                xl:col-span-2
+                card p-6
+            ">
+
+                <div class="
+                    flex items-center justify-between
+                    mb-6
+                ">
+
+                    <h2 class="
+                        text-xl font-bold
+                    ">
+                        Generate Article
+                    </h2>
+
+                    <span class="
+                        text-sm text-gray-500
+                    ">
+                        AI Engine
+                    </span>
+                </div>
+
+                <form
+                    method="POST"
+                    action="{{ generate_url }}"
+                    class="space-y-5"
+                >
+
+                    {% csrf_token %}
+
+                    <!-- ================================= -->
+                    <!-- KEYWORD -->
+                    <!-- ================================= -->
+
+                    <div>
+
+                        <input
+                            type="text"
+                            name="keyword"
+                            required
+                            value="{{ form.keyword|default:'' }}"
+                            placeholder="Target keyword"
+                            class="input"
+                        >
+                    </div>
+
+                    <!-- ================================= -->
+                    <!-- SELECTS -->
+                    <!-- ================================= -->
+
+                    <div class="
+                        grid grid-cols-1
+                        md:grid-cols-2
+                        gap-4
+                    ">
+
+                        <select
+                            name="language"
+                            class="input"
+                        >
+
+                            {% for language in supported_languages %}
+
+                            <option
+                                value="{{ language.value }}"
+                                {% if language.selected %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ language.label }}
+                            </option>
+
+                            {% endfor %}
+                        </select>
+
+                        <select
+                            name="provider"
+                            class="input"
+                        >
+
+                            {% for provider in providers %}
+
+                            <option
+                                value="{{ provider.value }}"
+                                {% if provider.selected %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ provider.label }}
+                            </option>
+
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- ================================= -->
+                    <!-- TEXTAREA -->
+                    <!-- ================================= -->
+
+                    <div>
+
+                        <textarea
+                            rows="6"
+                            name="instructions"
+                            placeholder="Article instructions"
+                            class="input"
+                        >{{ form.instructions|default:'' }}</textarea>
+                    </div>
+
+                    <!-- ================================= -->
+                    <!-- BUTTON -->
+                    <!-- ================================= -->
+
+                    <div>
+
+                        <button
+                            type="submit"
+                            class="btn"
+                        >
+                            Generate
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ========================================= -->
+            <!-- PROVIDERS -->
+            <!-- ========================================= -->
+
+            <div class="
+                card p-6
+            ">
+
+                <div class="
+                    flex items-center justify-between
+                    mb-6
+                ">
+
+                    <h2 class="
+                        text-xl font-bold
+                    ">
+                        Providers
+                    </h2>
+                </div>
+
+                <div class="
+                    space-y-4
+                ">
+
+                    {% for provider in provider_status %}
+
+                    <div class="
+                        flex items-center justify-between
+                        p-4 rounded-2xl
+                        bg-gray-50
+                        border border-gray-200
+                    ">
+
+                        <div>
+
+                            <h4 class="
+                                font-semibold
+                            ">
+                                {{ provider.name }}
+                            </h4>
+
+                            <p class="
+                                text-sm text-gray-500
+                            ">
+                                {{ provider.description }}
+                            </p>
+                        </div>
+
+                        <!-- ============================= -->
+                        <!-- TOGGLE -->
+                        <!-- ============================= -->
+
+                        <label class="
+                            relative inline-flex
+                            items-center cursor-pointer
+                        ">
+
+                            <input
+                                type="checkbox"
+                                class="
+                                    sr-only
+                                    feature-toggle
+                                "
+
+                                data-feature="{{ provider.name|lower }}_enabled"
+
+                                {% if provider.enabled %}
+                                    checked
+                                {% endif %}
+                            >
+
+                            <div class="
+                                w-12 h-7 rounded-full
+                                transition-all
+
+                                {% if provider.enabled %}
+                                    bg-emerald-500
+                                {% else %}
+                                    bg-gray-300
+                                {% endif %}
+                            ">
+
+                                <div class="
+                                    absolute top-1
+                                    w-5 h-5
+                                    bg-white rounded-full
+                                    transition-all
+
+                                    {% if provider.enabled %}
+                                        right-1
+                                    {% else %}
+                                        left-1
+                                    {% endif %}
+                                "></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- ARTICLES -->
+        <!-- ============================================= -->
+
+        <div class="
+            card p-6 mt-6
+            overflow-x-auto
+        ">
+
+            <div class="
+                flex items-center justify-between
+                mb-5
+            ">
+
+                <h2 class="
+                    text-xl font-bold
+                ">
+                    Recent Articles
+                </h2>
+            </div>
+
+            <table class="
+                w-full
+                min-w-[700px]
+            ">
+
+                <thead>
+
+                    <tr class="
+                        border-b border-gray-200
+                        text-left
+                        text-sm text-gray-500
+                    ">
+
+                        <th class="py-4">
+                            Keyword
+                        </th>
+
+                        <th class="py-4">
+                            Provider
+                        </th>
+
+                        <th class="py-4">
+                            Words
+                        </th>
+
+                        <th class="py-4">
+                            SEO
+                        </th>
+
+                        <th class="py-4">
+                            Status
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for article in recent_articles %}
+
+                    <tr class="
+                        border-b border-gray-100
+                    ">
+
+                        <td class="
+                            py-5 font-medium
+                        ">
+                            {{ article.keyword }}
+                        </td>
+
+                        <td class="
+                            py-5 text-blue-600
+                            font-medium
+                        ">
+                            {{ article.provider }}
+                        </td>
+
+                        <td class="py-5">
+                            {{ article.word_count }}
+                        </td>
+
+                        <td class="
+                            py-5 text-emerald-600
+                            font-semibold
+                        ">
+                            {{ article.seo_score }}%
+                        </td>
+
+                        <td class="py-5">
+
+                            <span class="
+                                px-3 py-1 rounded-xl
+                                text-xs font-semibold
+
+                                {% if article.status == 'Published' %}
+
+                                    bg-emerald-100
+                                    text-emerald-700
+
+                                {% else %}
+
+                                    bg-blue-100
+                                    text-blue-700
+
+                                {% endif %}
+                            ">
+
+                                {{ article.status }}
+                            </span>
+                        </td>
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td
+                            colspan="5"
+                            class="
+                                py-10
+                                text-center
+                                text-gray-400
+                            "
+                        >
+                            No articles found.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- ===================================================== -->
+<!-- TOGGLE SCRIPT -->
+<!-- ===================================================== -->
+
+<script>
+
+document
+.querySelectorAll(
+    ".feature-toggle"
+)
+.forEach(
+
+    function(toggle){
+
+        toggle.addEventListener(
+
+            "change",
+
+            async function(){
+
+                const feature =
+                    this.dataset.feature
+
+                const enabled =
+                    this.checked
+
+                try {
+
+                    await fetch(
+
+                        "/api/publisher/toggle-feature/",
+
+                        {
+
+                            method: "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json",
+
+                                "X-CSRFToken":
+                                    "{{ csrf_token }}",
+                            },
+
+                            body: JSON.stringify({
+
+                                feature: feature,
+
+                                enabled: enabled,
+                            }),
+                        }
+                    )
+
+                } catch(error){
+
+                    console.error(error)
+                }
+            }
+        )
+    }
+)
+
+</script>
+</body>
+</html>

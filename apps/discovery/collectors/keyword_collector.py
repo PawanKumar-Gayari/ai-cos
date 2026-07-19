@@ -17,10 +17,105 @@ from utils.logger import (
 
 class KeywordCollector:
 
+    # =========================
+    # STATIC PATTERNS
+    # =========================
+
+    PREFIX_PATTERNS = [
+
+        "best",
+
+        "top",
+
+        "cheap",
+
+        "free",
+
+        "professional",
+    ]
+
+    SUFFIX_PATTERNS = [
+
+        "tools",
+
+        "software",
+
+        "guide",
+
+        "tutorial",
+
+        "examples",
+
+        "tips",
+
+        "strategy",
+
+        "alternatives",
+
+        "comparison",
+
+        "review",
+
+        "trends",
+
+        "checklist",
+    ]
+
+    AUDIENCE_PATTERNS = [
+
+        "for beginners",
+
+        "for students",
+
+        "for professionals",
+
+        "for startups",
+
+        "for agencies",
+    ]
+
+    LONG_TAIL_PATTERNS = [
+
+        "how to use {}",
+
+        "how to learn {}",
+
+        "best free {}",
+
+        "{} implementation guide",
+
+        "{} best practices",
+
+        "{} use cases",
+
+        "{} roadmap",
+
+        "{} mistakes to avoid",
+    ]
+
     def collect(
         self,
         seed_keyword
     ):
+
+        # =========================
+        # VALIDATE INPUT
+        # =========================
+
+        if not seed_keyword:
+
+            logger.warning(
+                "Empty seed keyword received"
+            )
+
+            return {
+
+                "seed_keyword": "",
+
+                "total_keywords": 0,
+
+                "keywords": [],
+            }
 
         # =========================
         # NORMALIZE INPUT
@@ -39,106 +134,91 @@ class KeywordCollector:
         )
 
         # =========================
-        # BASE PATTERNS
+        # KEYWORD STORAGE
         # =========================
 
-        keyword_patterns = [
+        keyword_patterns = []
 
-            KeywordNormalizer.add_prefix(
-                seed_keyword,
-                "best"
-            ),
+        # =========================
+        # PREFIX PATTERNS
+        # =========================
 
-            f"{seed_keyword} for beginners",
+        for prefix in (
+            self.PREFIX_PATTERNS
+        ):
 
-            f"{seed_keyword} for students",
+            keyword_patterns.append(
 
-            f"{seed_keyword} for professionals",
+                KeywordNormalizer.add_prefix(
+                    seed_keyword,
+                    prefix
+                )
+            )
 
-            KeywordNormalizer.add_prefix(
-                seed_keyword,
-                "cheap"
-            ),
+        # =========================
+        # SUFFIX PATTERNS
+        # =========================
 
-            KeywordNormalizer.add_prefix(
-                seed_keyword,
-                "top"
-            ),
+        for suffix in (
+            self.SUFFIX_PATTERNS
+        ):
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "tools"
-            ),
+            keyword_patterns.append(
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "software"
-            ),
+                KeywordNormalizer.add_suffix(
+                    seed_keyword,
+                    suffix
+                )
+            )
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "guide"
-            ),
+        # =========================
+        # AUDIENCE PATTERNS
+        # =========================
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "tutorial"
-            ),
+        for audience in (
+            self.AUDIENCE_PATTERNS
+        ):
 
-            f"how to use {seed_keyword}",
+            keyword_patterns.append(
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "examples"
-            ),
+                f"{seed_keyword} {audience}"
+            )
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "tips"
-            ),
+        # =========================
+        # LONG TAIL PATTERNS
+        # =========================
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "strategy"
-            ),
+        for pattern in (
+            self.LONG_TAIL_PATTERNS
+        ):
 
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "alternatives"
-            ),
-
-            f"best free {seed_keyword}",
-
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "comparison"
-            ),
-
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "review"
-            ),
-
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "trends"
-            ),
-
-            KeywordNormalizer.add_suffix(
-                seed_keyword,
-                "checklist"
-            ),
-        ]
+            keyword_patterns.append(
+                pattern.format(
+                    seed_keyword
+                )
+            )
 
         # =========================
         # AI VARIATIONS
         # =========================
 
-        ai_variations = (
-            KeywordNormalizer.generate_variations(
-                seed_keyword
+        ai_variations = []
+
+        try:
+
+            ai_variations = (
+                KeywordNormalizer.generate_variations(
+                    seed_keyword
+                )
+            ) or []
+
+        except Exception as error:
+
+            logger.warning(
+
+                f"Variation generation failed: "
+                f"{str(error)}"
             )
-        )
 
         # =========================
         # COMBINE KEYWORDS
@@ -148,6 +228,19 @@ class KeywordCollector:
             keyword_patterns
             + ai_variations
         )
+
+        # =========================
+        # REMOVE EMPTY VALUES
+        # =========================
+
+        all_keywords = [
+
+            keyword.strip()
+
+            for keyword in all_keywords
+
+            if keyword
+        ]
 
         # =========================
         # REMOVE DUPLICATES

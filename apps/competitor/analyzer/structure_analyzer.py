@@ -2,6 +2,8 @@
 Competitor structure analyzer.
 """
 
+from collections import Counter
+
 from utils.helpers import (
     Helpers,
 )
@@ -42,6 +44,10 @@ class StructureAnalyzer:
         "Conclusion",
     ]
 
+    # ==================================================
+    # CLEAN SECTIONS
+    # ==================================================
+
     def clean_sections(
         self,
         headings,
@@ -75,6 +81,10 @@ class StructureAnalyzer:
 
         return cleaned
 
+    # ==================================================
+    # STRUCTURE DEPTH SCORE
+    # ==================================================
+
     def calculate_structure_depth(
         self,
         average_sections,
@@ -97,6 +107,85 @@ class StructureAnalyzer:
             return 60
 
         return 40
+
+    # ==================================================
+    # SECTION FREQUENCY
+    # ==================================================
+
+    def calculate_section_frequency(
+        self,
+        sections,
+    ):
+
+        """
+        Calculate section frequency.
+        """
+
+        normalized = []
+
+        for section in sections:
+
+            cleaned = (
+                str(section)
+                .strip()
+                .lower()
+            )
+
+            if cleaned:
+
+                normalized.append(
+                    cleaned
+                )
+
+        counter = Counter(
+            normalized
+        )
+
+        return dict(
+            counter.most_common(25)
+        )
+
+    # ==================================================
+    # STRUCTURE COMPLEXITY
+    # ==================================================
+
+    def calculate_structure_complexity(
+        self,
+        structures,
+    ):
+
+        """
+        Estimate structure complexity.
+        """
+
+        if not structures:
+
+            return 0
+
+        total_sections = 0
+
+        for structure in structures:
+
+            total_sections += (
+                structure.get(
+                    "total_sections",
+                    0
+                )
+            )
+
+        average_complexity = (
+            total_sections
+            / len(structures)
+        )
+
+        return round(
+            average_complexity,
+            2,
+        )
+
+    # ==================================================
+    # ANALYZE
+    # ==================================================
 
     def analyze(
         self,
@@ -140,9 +229,13 @@ class StructureAnalyzer:
 
                 "average_sections": 0,
 
+                "average_structure_depth": 0,
+
                 "structure_depth_score": 0,
 
                 "common_sections": [],
+
+                "section_frequency": {},
 
                 "recommended_structure": [],
 
@@ -273,16 +366,28 @@ class StructureAnalyzer:
         )
 
         # ==========================================
-        # UNIQUE COMMON SECTIONS
+        # STRUCTURE COMPLEXITY
         # ==========================================
 
-        common_sections = (
-            Helpers.unique_list(
+        average_structure_depth = (
+            self.calculate_structure_complexity(
+                structures
+            )
+        )
+
+        # ==========================================
+        # SECTION FREQUENCY
+        # ==========================================
+
+        section_frequency = (
+            self.calculate_section_frequency(
                 all_sections
             )
         )
 
-        common_sections.sort()
+        common_sections = list(
+            section_frequency.keys()
+        )
 
         # ==========================================
         # STRUCTURE DEPTH SCORE
@@ -334,12 +439,20 @@ class StructureAnalyzer:
                 average_sections
             ),
 
+            "average_structure_depth": (
+                average_structure_depth
+            ),
+
             "structure_depth_score": (
                 structure_depth_score
             ),
 
             "common_sections": (
                 common_sections
+            ),
+
+            "section_frequency": (
+                section_frequency
             ),
 
             "recommended_structure": (

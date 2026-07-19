@@ -12,7 +12,7 @@ class SystemSettings(models.Model):
     )
 
     enable_ollama = models.BooleanField(
-        default=True
+        default=False
     )
 
     enable_memory = models.BooleanField(

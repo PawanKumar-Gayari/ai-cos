@@ -7,6 +7,7 @@ import logging
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import serializers
 
 from drf_spectacular.utils import (
     extend_schema,
@@ -22,16 +23,41 @@ logger = logging.getLogger(
 )
 
 
+# =====================================================
+# SERIALIZERS
+# =====================================================
+
+class EmptySerializer(
+    serializers.Serializer
+):
+    pass
+
+
+# =====================================================
+# FULL MONITORING API
+# =====================================================
+
 class MonitoringAPIView(
     APIView
 ):
 
     """
-    Full system monitoring endpoint.
+    Full monitoring endpoint.
     """
 
+    authentication_classes = []
+
+    permission_classes = []
+
     @extend_schema(
-        tags=["Monitoring"]
+
+        tags=["Monitoring"],
+
+        request=EmptySerializer,
+
+        responses={
+            200: EmptySerializer
+        },
     )
     def get(
         self,
@@ -91,6 +117,10 @@ class MonitoringAPIView(
             )
 
 
+# =====================================================
+# HEALTH CHECK API
+# =====================================================
+
 class HealthCheckAPIView(
     APIView
 ):
@@ -104,7 +134,14 @@ class HealthCheckAPIView(
     permission_classes = []
 
     @extend_schema(
-        tags=["Monitoring"]
+
+        tags=["Monitoring"],
+
+        request=EmptySerializer,
+
+        responses={
+            200: EmptySerializer
+        },
     )
     def get(
         self,
@@ -125,6 +162,11 @@ class HealthCheckAPIView(
             provider_status = (
 
                 monitor.provider_health()
+            )
+
+            resource_status = (
+
+                monitor.resource_metrics()
             )
 
             healthy = (
@@ -154,6 +196,10 @@ class HealthCheckAPIView(
 
                     "providers": (
                         provider_status
+                    ),
+
+                    "resources": (
+                        resource_status
                     ),
                 },
 
@@ -185,6 +231,10 @@ class HealthCheckAPIView(
             )
 
 
+# =====================================================
+# METRICS API
+# =====================================================
+
 class MetricsAPIView(
     APIView
 ):
@@ -193,8 +243,19 @@ class MetricsAPIView(
     Lightweight metrics endpoint.
     """
 
+    authentication_classes = []
+
+    permission_classes = []
+
     @extend_schema(
-        tags=["Monitoring"]
+
+        tags=["Monitoring"],
+
+        request=EmptySerializer,
+
+        responses={
+            200: EmptySerializer
+        },
     )
     def get(
         self,
@@ -209,6 +270,11 @@ class MetricsAPIView(
 
             metrics = {
 
+                "resources": (
+
+                    monitor.resource_metrics()
+                ),
+
                 "generation": (
 
                     monitor.generation_metrics()
@@ -222,6 +288,11 @@ class MetricsAPIView(
                 "providers": (
 
                     monitor.provider_health()
+                ),
+
+                "cache": (
+
+                    monitor.cache_metrics()
                 ),
             }
 
